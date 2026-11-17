@@ -18,9 +18,8 @@
       </div>
 
       <nav class="main-nav" id="mainNav">
-        <button class="nav-btn active" data-view="quick">⚡ 局內選牌決策</button>
+        <button class="nav-btn active" data-view="champion">🎯 選牌決策與英雄配裝</button>
         <button class="nav-btn" data-view="calc">🧮 傷害與成長模擬</button>
-        <button class="nav-btn" data-view="champion">🦸 英雄全覽與配裝</button>
         <button class="nav-btn" data-view="augments">✨ 海克斯反查圖鑑</button>
         <button class="nav-btn" data-view="cheatsheet">📜 機制特化速查</button>
         <button class="nav-btn" data-view="tierlist">🏆 全英雄強度榜</button>
@@ -34,21 +33,18 @@
   </header>
 
   <main class="container">
-    <!-- VIEW 0 (DEFAULT QUICK MAIN PAGE): IN-GAME 3-CHOICE PICK ADVISOR -->
-    <section id="view-quick" class="view active"></section>
-
-    <!-- VIEW 1: DAMAGE & GROWTH SIMULATOR -->
-    <section id="view-calc" class="view"></section>
-
-    <!-- VIEW 2: CHAMPION EXPLORER -->
-    <section id="view-champion" class="view">
-      <div class="panel picker-panel">
+    <!-- VIEW 0 (UNIFIED DEFAULT VIEW): IN-GAME 3-CHOICE PICK ADVISOR + CHAMPION OVERVIEW & BUILD EXPLORER -->
+    <section id="view-champion" class="view active">
+      <div class="panel picker-panel" id="champPickerPanel">
         <div class="picker-controls">
           <div class="picker-title-row">
             <h2>選擇英雄 <span class="muted-count" id="champCountLabel">(173)</span></h2>
-            <button id="togglePickerBtn" class="btn-ghost btn-sm">收合列表 ▲</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button id="champModalQuickBtn" class="btn-gold btn-sm">🔍 彈窗快選英雄</button>
+              <button id="togglePickerBtn" class="btn-ghost btn-sm">展開全英雄網格 ▼</button>
+            </div>
           </div>
-          <div class="picker-filters">
+          <div class="picker-filters" id="champPickerFilters">
             <input id="champSearchInput" type="search" placeholder="篩選英雄名稱 / 英文 / 稱號..." class="input-sm" />
             <div class="pill-group" id="roleFilterGroup">
               <button class="pill active" data-role="ALL">全部定位</button>
@@ -69,10 +65,13 @@
             </div>
           </div>
         </div>
-        <div id="champGrid" class="champ-grid"></div>
+        <div id="champGrid" class="champ-grid collapsed"></div>
       </div>
       <div id="champDetailContainer"></div>
     </section>
+
+    <!-- VIEW 1: DAMAGE & GROWTH SIMULATOR -->
+    <section id="view-calc" class="view"></section>
 
     <!-- VIEW 3: AUGMENT ENCYCLOPEDIA -->
     <section id="view-augments" class="view"></section>

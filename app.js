@@ -34,12 +34,13 @@
   });
 
   const state = {
-    view: "quick",
+    view: "champion",
+    champSubTab: "decision", // "decision" | "build" | "all"
     selectedChampKey: "caitlyn",
-    pinnedAugs: [1134, 1048],
-    // Quick Decision Advisor State
+    pinnedAugs: [1195, 1077],
+    // Unified 4-Stage Augment Slots & Quick Decision Advisor State
     qLevel: 11,
-    qPicks: { 1: 1195, 7: 1077, 11: 0, 15: 0 }, // Automatically tracks chosen augment at each level!
+    qPicks: { 1: 1195, 7: 1077, 11: 0, 15: 0 }, // Canonical 4-stage augment slots!
     qOptions: [1134, 1048, 1022], // 3 offered augment choices
     qQuickRarity: "ALL",
     qQuickSearch: "",
@@ -52,7 +53,7 @@
     calcTarget: { hp: 3000, curHpPct: 100, armor: 110, mr: 80, giantDiffPct: 20 },
     calcStacks: { evil: 80, heartsteel: 400, tankEngine: 5, infRec: 5, destiny: 12, duality: 6 },
     // Champion Explorer State
-    pickerCollapsed: false,
+    pickerCollapsed: true,
     roleFilter: "ALL",
     tierFilter: "ALL",
     champSearch: "",
@@ -76,6 +77,54 @@
     tierSearch: ""
   };
 
+  const STAGES = [1, 7, 11, 15];
+
+  function getLockedAugs() {
+    return STAGES.map(lv => state.qPicks[lv]).filter(Boolean);
+  }
+
+  function syncPinnedFromPicks() {
+    state.pinnedAugs = getLockedAugs();
+  }
+
+  function setAugSlotsFromList(ids) {
+    const clean = (ids || []).map(Number).filter(id => {
+      const m = DATA.augments[String(id)];
+      return m && !ENG.isAugRetired(m);
+    }).slice(0, 4);
+    // Place early-only (Lv 1 / Lv 7) augments into the earliest slots automatically
+    clean.sort((a, b) => Number(ENG.isEarlyOnlyAug(b)) - Number(ENG.isEarlyOnlyAug(a)));
+    state.qPicks = { 1: 0, 7: 0, 11: 0, 15: 0 };
+    clean.forEach((id, i) => { state.qPicks[STAGES[i]] = id; });
+    const nextEmpty = STAGES.find(lv => !state.qPicks[lv]);
+    state.qLevel = nextEmpty || 15;
+    syncPinnedFromPicks();
+  }
+
+  function toggleAugInSlots(aid) {
+    const id = Number(aid);
+    const existingStage = STAGES.find(lv => state.qPicks[lv] === id);
+    if (existingStage) {
+      state.qPicks[existingStage] = 0;
+    } else {
+      const m = DATA.augments[String(id)];
+      if (m && ENG.isAugRetired(m)) return;
+      let targetStage;
+      if (ENG.isEarlyOnlyAug(id)) {
+        // Early-only augments can only roll at Lv 1 / Lv 7 -> prefer early slots first!
+        if (!state.qPicks[1]) targetStage = 1;
+        else if (!state.qPicks[7]) targetStage = 7;
+        else targetStage = state.qLevel <= 7 ? state.qLevel : 7;
+      } else {
+        targetStage = !state.qPicks[state.qLevel]
+          ? state.qLevel
+          : (STAGES.find(lv => !state.qPicks[lv]) || state.qLevel);
+      }
+      state.qPicks[targetStage] = id;
+    }
+    syncPinnedFromPicks();
+  }
+
   function esc(s) {
     if (s === null || s === undefined) return "";
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -97,15 +146,18 @@
   }
 
   function renderCurrentView() {
-    if (state.view === "quick") renderQuickAdvisor();
+    if (state.view === "champion" || state.view === "quick") { renderChampionGrid(); renderChampionDetail(); }
     else if (state.view === "calc") renderSimulatorCalc();
-    else if (state.view === "champion") { renderChampionGrid(); renderChampionDetail(); }
     else if (state.view === "augments") renderAugmentEncyclopedia();
     else if (state.view === "cheatsheet") renderCheatSheet();
     else if (state.view === "tierlist") renderTierList();
   }
 
   function switchView(viewName) {
+    if (viewName === "quick") {
+      viewName = "champion";
+      state.champSubTab = "decision";
+    }
     state.view = viewName;
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === viewName));
     document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + viewName));
@@ -306,6 +358,7 @@
 
   function openAugModal(champ, title, onSelectAug, opts = {}) {
     const onlyEligible = !!opts.onlyEligible;
+    const levelStage = opts.levelStage || 0;
     const augLookup = {};
     (champ.augs || []).forEach(a => { augLookup[a[0]] = a; });
     const entries = Object.values(DATA.augments)
@@ -317,11 +370,13 @@
       })
       .map(a => {
         const retired = ENG.isAugRetired(a);
+        const earlyOnly = ENG.isEarlyOnlyAug(a.id);
+        const stageBlocked = levelStage >= 11 && earlyOnly;
         const st = augLookup[a.id];
         const eligible = !retired && !!st;
         const wr = champ.augWr && champ.augWr[String(a.id)] ? champ.augWr[String(a.id)][0] : null;
         const tier = st ? st[1] : a.gTier;
-        const disabled = retired;
+        const disabled = retired || stageBlocked;
         return {
           value: String(a.id),
           label: a.name,
@@ -330,9 +385,11 @@
           disabled,
           sub: retired
             ? `<span class="chip" style="padding:0 4px;font-size:10px">非本賽季/不可選</span>`
-            : `<span class="t-badge rar-tag-${a.rarity}" style="padding:0 4px;font-size:10px">${RARITY_ZH[a.rarity] || ""}</span> ${TIER_LABEL[tier]}${wr ? ` · ${wr.toFixed(1)}%勝` : ""}${SYN.RULES[a.id] ? " ⚡" : ""}${!eligible ? " (非本英雄池)" : ""}`,
+            : (stageBlocked
+              ? `<span class="chip" style="padding:0 4px;font-size:10px;color:var(--muted)">🚫 限前兩輪 (Lv 1/7)</span>`
+              : `<span class="t-badge rar-tag-${a.rarity}" style="padding:0 4px;font-size:10px">${RARITY_ZH[a.rarity] || ""}</span> ${TIER_LABEL[tier]}${wr ? ` · ${wr.toFixed(1)}%勝` : ""}${earlyOnly ? " ⏳前兩輪限定" : ""}${SYN.RULES[a.id] ? " ⚡" : ""}${!eligible ? " (非本英雄池)" : ""}`),
           img: a.img,
-          sortKey: (disabled ? 1000000 : 0) + (st && st[3] > 0 ? 0 : 50000) + tier * 1000 - (wr || a.gPerf || 0),
+          sortKey: (retired ? 1000000 : 0) + (stageBlocked ? 500000 : 0) + (st && st[3] > 0 ? 0 : 50000) + tier * 1000 - (wr || a.gPerf || 0),
           searchText: `${a.name} ${a.key || ""} ${a.desc || ""}`.toLowerCase()
         };
       }).sort((a, b) => a.sortKey - b.sortKey);
@@ -363,16 +420,13 @@
   }
 
   // =========================================================================
-  // VIEW 0: QUICK IN-GAME 3-CHOICE PICK ADVISOR (4-STAGE AUTO-CARRYOVER)
+  // UNIFIED DECISION + BUILD CONTEXT & LISTENERS
   // =========================================================================
-  function renderQuickAdvisor() {
-    const view = document.getElementById("view-quick");
-    const c = getChampObj();
-    const STAGES = [1, 7, 11, 15];
+  function buildDecisionContext(c) {
     const stageIdx = STAGES.indexOf(state.qLevel);
     const prevLevels = STAGES.slice(0, Math.max(0, stageIdx));
     const activePrev = prevLevels.map(lv => state.qPicks[lv]).filter(Boolean);
-    const allLockedAugs = STAGES.map(lv => state.qPicks[lv]).filter(Boolean);
+    const allLockedAugs = getLockedAugs();
 
     const evals = ENG.evaluateQuickChoices(c, state.qLevel, activePrev, state.qOptions, DATA);
     const winner = evals[0];
@@ -385,7 +439,6 @@
       { lv: 15, title: "Lv 15", sub: "第 4 輪" }
     ];
 
-    // 4-Stage Interactive Progression Track
     const timelineHtml = `
       <div class="timeline-track">
         ${stageDefs.map(s => {
@@ -397,9 +450,9 @@
               <div class="stage-node-head">
                 <b style="color:${isCur ? "var(--teal)" : "var(--gold-bright)"}">${s.title} · ${s.sub}</b>
                 <div style="display:flex;gap:4px;align-items:center">
-                  ${isCur ? `<span class="chip" style="padding:0 6px;font-size:10px;border-color:var(--teal);color:var(--teal)">選牌中</span>` : ""}
-                  ${m ? `<button class="btn-ghost" data-edit-stage="${s.lv}" title="手動修改此階段海克斯" style="padding:0 5px;font-size:10px">改</button>
-                         <button class="btn-ghost" data-clear-stage="${s.lv}" title="清除此階段紀錄" style="padding:0 5px;font-size:10px">×</button>` : ""}
+                  ${isCur ? `<span class="chip" style="padding:0 6px;font-size:10px;border-color:var(--teal);color:var(--teal)">當前輪次</span>` : ""}
+                  <button class="btn-ghost" data-edit-stage="${s.lv}" title="選擇或修改此階段海克斯" style="padding:0 5px;font-size:10px">${m ? "改" : "填"}</button>
+                  ${m ? `<button class="btn-ghost" data-clear-stage="${s.lv}" title="清除此階段紀錄" style="padding:0 5px;font-size:10px">×</button>` : ""}
                 </div>
               </div>
               <div class="stage-node-body">
@@ -407,9 +460,9 @@
                   <img src="${esc(m.img)}" alt="" />
                   <div style="min-width:0">
                     <div style="font-weight:700;font-size:12.5px;color:var(--gold-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
-                    <div style="font-size:10.5px;color:var(--text-muted)">${RARITY_ZH[m.rarity] || ""} · 已鎖定</div>
+                    <div style="font-size:10.5px;color:var(--text-muted)">${RARITY_ZH[m.rarity] || ""} · ${SYN.RULES[aid] ? "⚡特化" : "已鎖定"}</div>
                   </div>
-                ` : `<div class="muted" style="font-size:12px">${isCur ? "👇 請在下方選 3 張候選牌" : (s.lv < state.qLevel ? "+ 點「改」補填或跳回選擇" : "待完成前置後進入")}</div>`}
+                ` : `<div class="muted" style="font-size:11.5px">${isCur ? "選牌中／點「填」或下方圖鑑加入" : (s.lv < state.qLevel ? "點「填」補選此輪" : "待前置完成")}</div>`}
               </div>
             </div>
           `;
@@ -417,7 +470,6 @@
       </div>
     `;
 
-    // Active previous synergies indicator
     const prevCarryBar = prevLevels.length === 0
       ? `<span class="muted" style="font-size:12px">Lv 1 開局無前置海克斯，將優先評估全場成長潛力；選完後會自動紀錄並跳轉至 Lv 7！</span>`
       : `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -427,7 +479,7 @@
                 const m = DATA.augments[String(aid)];
                 return m ? `<span class="combo-aug-pill rar-${m.rarity}"><img src="${esc(m.img)}" /><b>${esc(m.name)}</b></span>` : "";
               }).join("")
-            : `<span class="muted" style="font-size:12px">尚未鎖定前置階段（可點擊上方 Lv 卡片補選，或直接選擇本輪海克斯）</span>`}
+            : `<span class="muted" style="font-size:12px">尚未鎖定前置階段（可點擊上方 Lv 卡片補填，或直接選擇本輪海克斯）</span>`}
         </div>`;
 
     const optSlotsHtml = [0, 1, 2].map(idx => {
@@ -450,11 +502,10 @@
       `;
     }).join("");
 
-    // Popular quick-fill chips for this champion (only active season + eligible for this champion)
     const topAugsForChamp = (c.augs || [])
       .filter(a => a[3] > 0)
       .map(a => DATA.augments[String(a[0])])
-      .filter(a => a && !ENG.isAugRetired(a) && (state.qQuickRarity === "ALL" || String(a.rarity) === state.qQuickRarity));
+      .filter(a => a && !ENG.isAugRetired(a) && ENG.isAugAvailableAtStage(a, state.qLevel) && (state.qQuickRarity === "ALL" || String(a.rarity) === state.qQuickRarity));
 
     const resultsHtml = evals.map((ev, rankIdx) => {
       const isWinner = rankIdx === 0;
@@ -464,10 +515,15 @@
         ? `✓ 選「${ev.meta.name}」並進入 Lv ${nextLv} →`
         : `✓ 鎖定「${ev.meta.name}」（完成 4 輪）`;
       return `
-        <div class="decision-card ${isWinner ? "winner" : ""} rar-${ev.meta.rarity}">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            ${isWinner ? `<div class="winner-ribbon">👑 最高綜合勝率推薦 · 首選</div>` : `<div class="chip">第 ${rankIdx + 1} 順位選擇</div>`}
-            ${state.qPicks[state.qLevel] === ev.id ? `<span class="chip" style="border-color:var(--green);color:var(--green)">✓ 本輪已選</span>` : ""}
+        <div class="decision-card ${isWinner ? "winner" : ""} rar-${ev.meta.rarity} ${ev.unavailableAtStage ? "aug-retired" : ""}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            ${ev.unavailableAtStage
+              ? `<span class="chip" style="border-color:var(--red);color:#fca5a5">🚫 後兩輪正常抽選不會出現</span>`
+              : (isWinner ? `<div class="winner-ribbon">👑 最高綜合勝率推薦 · 首選</div>` : `<div class="chip">第 ${rankIdx + 1} 順位選擇</div>`)}
+            <div style="display:flex;gap:4px;align-items:center">
+              ${ev.isEarlyOnly ? `<span class="t-badge" style="background:rgba(245,158,11,.18);color:var(--gold-bright);border:1px solid rgba(245,158,11,.4)">⏳ 限前兩輪</span>` : ""}
+              ${state.qPicks[state.qLevel] === ev.id ? `<span class="chip" style="border-color:var(--green);color:var(--green)">✓ 本輪已選</span>` : ""}
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px">
             <img src="${esc(ev.meta.img)}" style="width:46px;height:46px;border-radius:8px;background:#000" />
@@ -521,44 +577,39 @@
       `;
     }).join("");
 
-    // Live synthesized build based on all locked picks (+ winner preview if current stage not yet locked)
-    const previewAugs = allLockedAugs.length ? allLockedAugs : (winner ? [winner.id] : []);
-    const liveSynth = SYN.synthesizeBuild(c, previewAugs, DATA);
-    const liveItemsHtml = [
-      liveSynth.boots ? itemHtml(liveSynth.boots.id, "", liveSynth.boots) : "",
-      ...liveSynth.items.map(it => itemHtml(it.id, it.reasons.some(r => r.includes("特化")) ? "specialized" : "", it.wr ? it : null))
-    ].filter(Boolean).join("");
-
-    view.innerHTML = `
-      <!-- TOP BAR: CHAMPION + 4-STAGE TIMELINE -->
-      <div class="panel" style="border-color:var(--border-gold)">
-        <div class="panel-header" style="margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <img src="${esc(c.img)}" style="width:46px;height:46px;border-radius:9px;border:2px solid var(--gold)" />
-            <div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <b style="font-size:18px;color:var(--gold-bright)">${esc(c.name)}</b>
-                <span class="t-badge t-${c.tier}">${TIER_LABEL[c.tier]}</span>
-                <span class="mono" style="color:${c.wr >= 52 ? "var(--green)" : "var(--text-muted)"};font-weight:700;font-size:13px">${c.wr.toFixed(1)}% 勝率</span>
+    const previewAnchorAugs = [...new Set([...activePrev, ...(winner && !winner.unavailableAtStage ? [winner.id] : [])])];
+    const nextStageFloor = state.qLevel === 1 ? 7 : 11;
+    const nextRecs = state.qLevel < 15 ? ENG.recommendNextAugments(c, nextStageFloor, previewAnchorAugs, DATA) : [];
+    const nextRecsHtml = nextRecs.length ? `
+      <div class="panel" style="border-color:rgba(56,189,248,0.35)">
+        <div class="panel-header" style="margin-bottom:8px">
+          <h3>🔮 ${state.qLevel === 1 ? "下一輪起（Lv 7 / 11 / 15）推薦可搭配海克斯" : "後續輪次（Lv 11 / Lv 15）還抽得到的推薦搭配"}</h3>
+          <span class="muted" style="font-size:12px">${state.qLevel >= 7 ? "已自動過濾「限前兩輪（心鋼起來／法帽／極度邪惡等）」後兩輪抽不到的海克斯" : "標註 ⏳ 者為限前兩輪海克斯，想配成套須把握 Lv 7 前鎖定"}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">
+          ${nextRecs.map(rc => `
+            <div class="combo-row rar-${rc.meta.rarity}" style="margin:0;cursor:default">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                <img src="${esc(rc.meta.img)}" style="width:32px;height:32px;border-radius:6px;background:#000;flex-shrink:0" />
+                <div style="min-width:0">
+                  <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+                    <b style="font-size:13px;color:var(--gold-bright)">${esc(rc.meta.name)}</b>
+                    ${rc.isEarly ? `<span class="t-badge" style="font-size:10px;padding:0 5px;background:rgba(245,158,11,.18);color:var(--gold-bright)">⏳ 限Lv7前</span>` : ""}
+                  </div>
+                  <div style="font-size:11px;color:${rc.synScore > 0 ? "var(--teal)" : "var(--text-muted)"}">${esc(rc.reason)}</div>
+                </div>
               </div>
-              <div class="muted" style="font-size:11.5px">${esc(c.title)} · 核心點法 ${esc(c.skillOrder)}</div>
+              <div style="text-align:right;white-space:nowrap">
+                <span class="t-badge t-${rc.tier}" style="font-size:10px">${TIER_LABEL[rc.tier]}</span>
+                ${rc.wr ? `<div class="mono" style="font-size:11px;color:var(--green);margin-top:2px">${rc.wr.toFixed(1)}%</div>` : ""}
+              </div>
             </div>
-            <button id="qChangeChampBtn" class="btn-gold">更換英雄 ▾</button>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button id="qResetRunBtn" class="btn-ghost">🔄 重新開局</button>
-            <button id="qDemoCaitBtn" class="btn-gold">示範：凱特琳 Lv 11</button>
-            <button id="qDemoEkkoBtn" class="btn-accent">示範：艾克 Lv 15</button>
-          </div>
+          `).join("")}
         </div>
-
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">
-          對局海克斯進度軸（選完每輪三選一後會<b>自動鎖定紀錄並跳轉至下一等級</b>；亦可直接點任一階段查看或修改）：
-        </div>
-        ${timelineHtml}
       </div>
+    ` : "";
 
-      <!-- CURRENT STAGE 3-CHOICE PICKER -->
+    const decisionHtml = `
       <div class="panel">
         <div class="panel-header" style="margin-bottom:8px">
           <h3>🎯 正在進行 <span style="color:var(--teal)">Lv ${state.qLevel}</span> 三選一決策</h3>
@@ -572,7 +623,7 @@
         </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-          <span class="muted" style="font-size:12px">點選下方 A / B / C 欄位（支援品質分類篩選）或使用右側熱門快捷填入：</span>
+          <span class="muted" style="font-size:12px">點選下方 A / B / C 欄位（${state.qLevel >= 11 ? `已自動標灰並停用「限前兩輪」與無資格海克斯` : `僅顯示 ${esc(c.name)} 本賽季可選海克斯`}）或右側快捷填入：</span>
           <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
             <div class="pill-group">
               ${[["ALL","全部"],["8","🌈 稜鏡"],["4","🥇 黃金"],["1","🥈 白銀"]].map(([v,l]) => `<button class="pill ${state.qQuickRarity===v?"active":""}" data-qrar="${v}" style="padding:2px 7px;font-size:11px">${l}</button>`).join("")}
@@ -583,141 +634,121 @@
         ${optSlotsHtml}
       </div>
 
-      <!-- DECISION COMPARISON CARDS -->
       ${evals.length ? `
         <div class="panel">
           <div class="panel-header">
             <h3>🏆 Lv ${state.qLevel} 勝率分析：建議選 <span style="color:var(--teal)">【${esc(winner.meta.name)}】</span>（預測 ${winner.finalScore.toFixed(1)}%）</h3>
-            <span class="muted" style="font-size:12px">點擊卡片下方「選這張並進入下一等級」即可自動記錄並推進對局！</span>
+            <span class="muted" style="font-size:12px">點擊「選這張並進入下一等級」將自動記錄至上方進度軌並同步下方特化配裝！</span>
           </div>
           <div class="decision-cards">${resultsHtml}</div>
         </div>
       ` : `<div class="panel muted" style="text-align:center;padding:24px">請從上方點選本輪場上的 3 個海克斯選項（A / B / C）以立即分析勝率與連動</div>`}
-
-      <!-- LIVE LOCKED BUILD PREVIEW -->
-      <div class="panel" style="border-color:rgba(10,200,185,0.4)">
-        <div class="panel-header" style="margin-bottom:8px">
-          <h3>🛡️ 本局累積海克斯與即時 6 神裝推薦</h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button id="qSendToCalcBtn" class="btn-accent">帶入傷害模擬器 🧮</button>
-            <button id="qSendToFullBtn" class="btn-gold">帶入完整配裝頁 🦸</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <span class="muted" style="font-size:12px">已鎖定海克斯：</span>
-          ${allLockedAugs.length
-            ? allLockedAugs.map(aid => {
-                const m = DATA.augments[String(aid)];
-                return m ? `<span class="combo-aug-pill rar-${m.rarity}"><img src="${esc(m.img)}" /><b>${esc(m.name)}</b></span>` : "";
-              }).join("")
-            : `<span class="muted" style="font-size:12px">尚未鎖定任何海克斯（目前以首選「${winner ? esc(winner.meta.name) : "-"}」預覽配裝）</span>`}
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:7px">${liveItemsHtml}</div>
-      </div>
+      ${nextRecsHtml}
     `;
 
-    view.querySelector("#qChangeChampBtn").onclick = () => openChampModal(ck => { selectChampion(ck, null); renderQuickAdvisor(); });
-    view.querySelector("#qResetRunBtn").onclick = () => {
+    const liveAugsUsed = allLockedAugs.length ? allLockedAugs : (winner ? [winner.id] : []);
+    return { activePrev, allLockedAugs, evals, winner, nextLv, timelineHtml, decisionHtml, liveAugsUsed };
+  }
+
+  function attachUnifiedStageListeners(det, c, ctx) {
+    const resetBtn = det.querySelector("#qResetRunBtn");
+    if (resetBtn) resetBtn.onclick = () => {
       state.qLevel = 1;
       state.qPicks = { 1: 0, 7: 0, 11: 0, 15: 0 };
-      const top3 = (c.augs || []).slice(0, 3).map(a => a[0]);
+      syncPinnedFromPicks();
+      const top3 = (c.augs || []).filter(a => a[3] > 0 && !ENG.isAugRetired(DATA.augments[String(a[0])])).slice(0, 3).map(a => a[0]);
       state.qOptions = top3.length === 3 ? top3 : [0, 0, 0];
-      renderQuickAdvisor();
+      renderChampionDetail();
     };
-    view.querySelector("#qClearOptsBtn").onclick = () => { state.qOptions = [0, 0, 0]; renderQuickAdvisor(); };
 
-    // Timeline stage switching, editing, clearing
-    view.querySelectorAll("[data-q-lv]").forEach(el => {
+    const clrOptsBtn = det.querySelector("#qClearOptsBtn");
+    if (clrOptsBtn) clrOptsBtn.onclick = () => { state.qOptions = [0, 0, 0]; renderChampionDetail(); };
+
+    det.querySelectorAll("[data-q-lv]").forEach(el => {
       el.onclick = (e) => {
         if (e.target.closest("[data-edit-stage]") || e.target.closest("[data-clear-stage]")) return;
         state.qLevel = Number(el.dataset.qLv);
-        renderQuickAdvisor();
+        renderChampionDetail();
       };
     });
-    view.querySelectorAll("[data-edit-stage]").forEach(btn => {
+    det.querySelectorAll("[data-edit-stage]").forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
         const lv = Number(btn.dataset.editStage);
-        openAugModal(c, `修改 Lv ${lv} 已選海克斯 (僅顯示 ${c.name} 可選)`, (aid) => {
+        openAugModal(c, `設定 Lv ${lv} 海克斯 (僅顯示 ${c.name} 本輪可選)`, (aid) => {
           state.qPicks[lv] = aid;
-          renderQuickAdvisor();
-        }, { onlyEligible: true });
+          syncPinnedFromPicks();
+          renderChampionDetail();
+        }, { onlyEligible: true, levelStage: lv });
       };
     });
-    view.querySelectorAll("[data-clear-stage]").forEach(btn => {
+    det.querySelectorAll("[data-clear-stage]").forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
         state.qPicks[Number(btn.dataset.clearStage)] = 0;
-        renderQuickAdvisor();
+        syncPinnedFromPicks();
+        renderChampionDetail();
       };
     });
 
-    // Current stage A/B/C options
-    view.querySelectorAll("[data-pick-opt]").forEach(el => {
+    det.querySelectorAll("[data-pick-opt]").forEach(el => {
       el.onclick = (e) => {
         if (e.target.closest("[data-clear-opt]")) return;
         const idx = Number(el.dataset.pickOpt);
-        openAugModal(c, `選擇 Lv ${state.qLevel} 選項 ${["A", "B", "C"][idx]} (僅顯示 ${c.name} 可選)`, (aid) => {
+        openAugModal(c, `選擇 Lv ${state.qLevel} 選項 ${["A", "B", "C"][idx]} (僅顯示 ${c.name} 本輪可選)`, (aid) => {
           state.qOptions[idx] = aid;
-          renderQuickAdvisor();
-        }, { onlyEligible: true });
+          renderChampionDetail();
+        }, { onlyEligible: true, levelStage: state.qLevel });
       };
     });
-    view.querySelectorAll("[data-clear-opt]").forEach(btn => {
-      btn.onclick = (e) => { e.stopPropagation(); state.qOptions[Number(btn.dataset.clearOpt)] = 0; renderQuickAdvisor(); };
+    det.querySelectorAll("[data-clear-opt]").forEach(btn => {
+      btn.onclick = (e) => { e.stopPropagation(); state.qOptions[Number(btn.dataset.clearOpt)] = 0; renderChampionDetail(); };
     });
-    view.querySelectorAll("[data-qrar]").forEach(btn => {
-      btn.onclick = () => { state.qQuickRarity = btn.dataset.qrar; renderQuickAdvisor(); };
+    det.querySelectorAll("[data-qrar]").forEach(btn => {
+      btn.onclick = () => { state.qQuickRarity = btn.dataset.qrar; renderChampionDetail(); };
     });
-    view.querySelectorAll("[data-qfill]").forEach(btn => {
+    det.querySelectorAll("[data-qfill]").forEach(btn => {
       btn.onclick = () => {
         const aid = Number(btn.dataset.qfill);
         const emptyIdx = state.qOptions.findIndex(x => !x);
         if (emptyIdx >= 0) state.qOptions[emptyIdx] = aid;
         else state.qOptions = [state.qOptions[1], state.qOptions[2], aid];
-        renderQuickAdvisor();
+        renderChampionDetail();
       };
     });
 
-    // Commit pick & auto-advance to next level!
-    view.querySelectorAll("[data-commit-pick]").forEach(btn => {
+    det.querySelectorAll("[data-commit-pick]").forEach(btn => {
       btn.onclick = () => {
         const chosenId = Number(btn.dataset.commitPick);
         state.qPicks[state.qLevel] = chosenId;
-        if (nextLv) {
-          state.qLevel = nextLv;
+        syncPinnedFromPicks();
+        if (ctx.nextLv) {
+          state.qLevel = ctx.nextLv;
           state.qOptions = [0, 0, 0];
         }
-        renderQuickAdvisor();
+        renderChampionDetail();
       };
     });
 
-    view.querySelector("#qDemoCaitBtn").onclick = () => {
+    const dCait = det.querySelector("#qDemoCaitBtn");
+    if (dCait) dCait.onclick = () => {
       selectChampion("caitlyn", null);
       state.qLevel = 11;
       state.qPicks = { 1: 1195, 7: 1077, 11: 0, 15: 0 };
+      syncPinnedFromPicks();
       state.qOptions = [1134, 1048, 1022];
-      renderQuickAdvisor();
+      renderChampionGrid();
+      renderChampionDetail();
     };
-    view.querySelector("#qDemoEkkoBtn").onclick = () => {
+    const dEkko = det.querySelector("#qDemoEkkoBtn");
+    if (dEkko) dEkko.onclick = () => {
       selectChampion("ekko", null);
       state.qLevel = 15;
       state.qPicks = { 1: 1029, 7: 1030, 11: 3078, 15: 0 };
+      syncPinnedFromPicks();
       state.qOptions = [1156, 1390, 1048];
-      renderQuickAdvisor();
-    };
-    const scBtn = view.querySelector("#qSendToCalcBtn");
-    if (scBtn) scBtn.onclick = () => {
-      const augsToUse = allLockedAugs.length ? allLockedAugs : [...activePrev, ...(winner ? [winner.id] : [])];
-      state.calcLevel = state.qLevel === 1 ? 3 : (state.qLevel === 7 ? 7 : (state.qLevel === 11 ? 11 : 16));
-      state.calcAugs = augsToUse.slice(0, 4);
-      switchView("calc");
-    };
-    const sfBtn = view.querySelector("#qSendToFullBtn");
-    if (sfBtn) sfBtn.onclick = () => {
-      const augsToUse = allLockedAugs.length ? allLockedAugs : [...activePrev, ...(winner ? [winner.id] : [])];
-      state.pinnedAugs = augsToUse.slice(0, 4);
-      switchView("champion");
+      renderChampionGrid();
+      renderChampionDetail();
     };
   }
 
@@ -1155,6 +1186,10 @@
     }).sort((a, b) => a.rank - b.rank);
 
     document.getElementById("champCountLabel").textContent = `(${list.length} / ${DATA.champions.length})`;
+    const panel = document.getElementById("champPickerPanel");
+    if (panel) panel.classList.toggle("is-collapsed", state.pickerCollapsed);
+    const tBtn = document.getElementById("togglePickerBtn");
+    if (tBtn) tBtn.textContent = state.pickerCollapsed ? "展開全英雄網格 ▼" : "收合網格 ▲";
     const grid = document.getElementById("champGrid");
     grid.classList.toggle("collapsed", state.pickerCollapsed);
     grid.innerHTML = list.map(c => `
@@ -1173,11 +1208,16 @@
     const c = getChampObj();
     if (autoPinAugId !== null) {
       const m = DATA.augments[String(autoPinAugId)];
-      state.pinnedAugs = (m && !ENG.isAugRetired(m)) ? [Number(autoPinAugId)] : [];
+      if (m && !ENG.isAugRetired(m)) setAugSlotsFromList([Number(autoPinAugId)]);
+      else setAugSlotsFromList([]);
     } else {
-      const topSyn = (c.augs || []).filter(a => SYN.RULES[a[0]] && !ENG.isAugRetired(DATA.augments[String(a[0])])).sort((a, b) => (a[1] - b[1]) || (b[2] - a[2]));
-      state.pinnedAugs = topSyn.length ? [topSyn[0][0]] : [];
+      state.qLevel = 1;
+      state.qPicks = { 1: 0, 7: 0, 11: 0, 15: 0 };
+      syncPinnedFromPicks();
     }
+    const top3 = (c.augs || []).filter(a => a[3] > 0 && !ENG.isAugRetired(DATA.augments[String(a[0])])).slice(0, 3).map(a => a[0]);
+    state.qOptions = top3.length === 3 ? top3 : [0, 0, 0];
+
     // Sync simulator defaults nicely when switching hero
     const core = c.core && c.core[0] ? c.core[0].ids : [];
     const boot = c.boots && c.boots[0] ? [c.boots[0].id] : [];
@@ -1186,10 +1226,6 @@
     while (state.calcItems.length < 6) state.calcItems.push(0);
     state.calcAugs = [...state.pinnedAugs];
     state.calcAugCfg = {};
-    state.qLevel = 1;
-    state.qPicks = { 1: 0, 7: 0, 11: 0, 15: 0 };
-    const top3 = (c.augs || []).filter(a => a[3] > 0 && !ENG.isAugRetired(DATA.augments[String(a[0])])).slice(0, 3).map(a => a[0]);
-    if (top3.length === 3) state.qOptions = top3;
   }
 
   document.getElementById("champGrid").addEventListener("click", (e) => {
@@ -1198,8 +1234,11 @@
   });
   document.getElementById("togglePickerBtn").addEventListener("click", () => {
     state.pickerCollapsed = !state.pickerCollapsed;
-    document.getElementById("togglePickerBtn").textContent = state.pickerCollapsed ? "展開英雄列表 ▼" : "收合列表 ▲";
-    document.getElementById("champGrid").classList.toggle("collapsed", state.pickerCollapsed);
+    renderChampionGrid();
+  });
+  const cmQuick = document.getElementById("champModalQuickBtn");
+  if (cmQuick) cmQuick.addEventListener("click", () => {
+    openChampModal(ck => { selectChampion(ck, null); renderChampionGrid(); renderChampionDetail(); });
   });
   document.getElementById("champSearchInput").addEventListener("input", (e) => {
     state.champSearch = e.target.value;
@@ -1282,58 +1321,40 @@
       ${skillsDrawerHtml ? `<div class="panel" style="margin-top:-8px">${skillsDrawerHtml}</div>` : ""}
     `;
 
-    const simHtml = renderSimulatorSection(c);
-    const augsHtml = renderChampAugmentsSection(c);
-    const rightHtml = renderChampRightColumn(c);
+    const ctx = buildDecisionContext(c);
+    const sharedBoxHtml = renderSharedCoreBox(c, ctx);
+    const subTabsHtml = `
+      <div class="champ-subtabs">
+        <button class="subtab-btn ${state.champSubTab === "decision" ? "active" : ""}" data-subtab="decision">⚡ 局內三選一決策</button>
+        <button class="subtab-btn ${state.champSubTab === "build" ? "active" : ""}" data-subtab="build">📚 特化詳解與全海克斯 / OP.GG 配裝</button>
+        <button class="subtab-btn ${state.champSubTab === "all" ? "active" : ""}" data-subtab="all">🧩 決策＋圖鑑同頁展開</button>
+      </div>
+    `;
+
+    const showDecision = state.champSubTab === "decision" || state.champSubTab === "all";
+    const showBuild = state.champSubTab === "build" || state.champSubTab === "all";
+
+    const buildSubHtml = showBuild ? `
+      ${renderBuildSubSection(c, ctx)}
+      <div class="detail-columns">
+        <div>${renderChampAugmentsSection(c)}</div>
+        <div>${renderChampRightColumn(c)}</div>
+      </div>
+    ` : "";
 
     container.innerHTML = `
       ${headerHtml}
-      ${simHtml}
-      <div class="detail-columns">
-        <div>${augsHtml}</div>
-        <div>${rightHtml}</div>
-      </div>
+      ${sharedBoxHtml}
+      ${subTabsHtml}
+      ${showDecision ? ctx.decisionHtml : ""}
+      ${buildSubHtml}
     `;
-    attachDetailListeners(c);
+    attachDetailListeners(c, ctx);
   }
 
-  function renderSimulatorSection(c) {
-    const pinned = state.pinnedAugs.slice(0, 4);
-    const champAugLookup = {};
-    (c.augs || []).forEach(a => { champAugLookup[a[0]] = a; });
-
-    const slotsHtml = [0, 1, 2, 3].map(idx => {
-      const aid = pinned[idx];
-      if (!aid) return `<div class="sim-slot"><span class="muted" style="font-size:12px">欄位 ${idx + 1} · 點擊下方海克斯加入</span></div>`;
-      const meta = DATA.augments[String(aid)];
-      const st = champAugLookup[aid];
-      const rarCls = meta ? "rar-" + meta.rarity : "";
-      const hasSyn = !!SYN.RULES[aid];
-      return `
-        <div class="sim-slot filled ${rarCls}">
-          <img src="${esc(meta ? meta.img : "")}" alt="" />
-          <div style="min-width:0;padding-right:18px">
-            <div style="font-weight:700;font-size:13px;color:var(--gold-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(meta ? meta.name : "#" + aid)}</div>
-            <div style="font-size:11px;color:var(--text-muted)">
-              ${st ? `<span class="t-badge t-${st[1]}" style="padding:0 5px;font-size:10px">${TIER_LABEL[st[1]]}</span> 表現 ${st[2]}` : "自選模擬"}
-              ${hasSyn ? `<span style="color:var(--teal);margin-left:4px">⚡特化</span>` : ""}
-            </div>
-          </div>
-          <button class="sim-slot-remove" data-unpin="${aid}" title="移除">×</button>
-        </div>
-      `;
-    }).join("");
-
-    const topSynAugs = (c.augs || []).filter(a => SYN.RULES[a[0]] && a[1] <= 2 && !ENG.isAugRetired(DATA.augments[String(a[0])])).sort((a, b) => (a[1] - b[1]) || (b[2] - a[2])).slice(0, 8);
-    const quickIds = [...new Set([...topSynAugs.map(x => x[0]), 1029, 1002, 1030, 1048, 1129, 1045])].slice(0, 10);
-    const quickPillsHtml = quickIds.map(aid => {
-      const m = DATA.augments[String(aid)];
-      if (!m || ENG.isAugRetired(m)) return "";
-      const isPin = pinned.includes(aid);
-      return `<button class="pill ${isPin ? "active" : ""}" data-toggle-pin="${aid}">${isPin ? "✓ " : "+ "}${esc(m.name)}</button>`;
-    }).join("");
-
-    const synth = SYN.synthesizeBuild(c, pinned, DATA);
+  function renderSharedCoreBox(c, ctx) {
+    const augsForSynth = ctx.liveAugsUsed;
+    const synth = SYN.synthesizeBuild(c, augsForSynth, DATA);
     const bootHtml = synth.boots ? `
       <div class="item-card-lg" data-item-id="${synth.boots.id}">
         <img src="${esc(synth.boots.img)}" alt="" />
@@ -1358,6 +1379,49 @@
         <b>🚫 衝突避坑提醒：</b>由於已選海克斯機制限制，本場<b>請勿購買</b>：
         ${synth.avoid.map(av => itemHtml(av.id)).join("")}
       </div>` : "";
+
+    const lockedCount = ctx.allLockedAugs.length;
+    const statusLabel = lockedCount
+      ? `依據已選 ${lockedCount} 個海克斯即時合成`
+      : (ctx.winner ? `尚未鎖定海克斯 · 先以首選「${ctx.winner.meta.name}」預覽` : "OP.GG 英雄標準配裝");
+
+    return `
+      <div class="sim-panel">
+        <div class="panel-header" style="margin-bottom:8px">
+          <h3>⬡ 4 階段海克斯槽位與即時 6 神裝合成台 <span class="chip" style="border-color:var(--teal);color:var(--teal);font-weight:600">${esc(statusLabel)}</span></h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button id="qResetRunBtn" class="btn-ghost">🔄 清空/重新開局</button>
+            <button id="qDemoCaitBtn" class="btn-gold">示範：凱特琳 Lv 11</button>
+            <button id="qDemoEkkoBtn" class="btn-accent">示範：艾克 Lv 15</button>
+            <button id="sendPinToCalcBtn" class="btn-accent">帶入傷害模擬 🧮</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
+          選牌決策與英雄配裝<b>共用此 4 格海克斯紀錄</b>：在決策中選牌會自動填入並跳下一級，或在「全海克斯圖鑑」直接點擊卡片快速增減。
+        </div>
+        ${ctx.timelineHtml}
+        <div class="synth-build-box" style="margin-top:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700;color:var(--gold-bright)">🎯 綜合推薦 6 件神裝（青色框＝海克斯專屬特化裝，懸停查看 Riot 16.22 數值）</span>
+            ${state.champSubTab === "decision" ? `<button class="btn-ghost" data-subtab="build" style="font-size:11.5px">展開特化路線詳解 / OP.GG 數據 →</button>` : ""}
+          </div>
+          <div class="synth-row">${bootHtml}${itemsHtml}</div>
+          ${avoidHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBuildSubSection(c, ctx) {
+    const pinned = ctx.allLockedAugs;
+    const topSynAugs = (c.augs || []).filter(a => SYN.RULES[a[0]] && a[1] <= 2 && !ENG.isAugRetired(DATA.augments[String(a[0])])).sort((a, b) => (a[1] - b[1]) || (b[2] - a[2])).slice(0, 8);
+    const quickIds = [...new Set([...topSynAugs.map(x => x[0]), 1029, 1002, 1030, 1048, 1129, 1045])].slice(0, 10);
+    const quickPillsHtml = quickIds.map(aid => {
+      const m = DATA.augments[String(aid)];
+      if (!m || ENG.isAugRetired(m)) return "";
+      const isPin = pinned.includes(aid);
+      return `<button class="pill ${isPin ? "active" : ""}" data-toggle-pin="${aid}">${isPin ? "✓ " : "+ "}${esc(m.name)}</button>`;
+    }).join("");
 
     const synergyDetails = pinned.map(aid => {
       const g = SYN.getAugmentGuide(c, aid, DATA);
@@ -1391,27 +1455,16 @@
     }).filter(Boolean).join("");
 
     return `
-      <div class="sim-panel">
-        <div class="panel-header">
-          <h3>🧪 局內海克斯模擬與特化裝備合成台 <span class="muted" style="font-size:12px;font-weight:400">(點選已拿到的海克斯，立即切換對應特化出裝)</span></h3>
-          <div style="display:flex;gap:8px">
-            <button id="sendPinToCalcBtn" class="btn-accent">帶入傷害模擬 🧮</button>
-            <button id="clearPinsBtn" class="btn-ghost">清空欄位</button>
-          </div>
+      <div class="panel">
+        <div class="panel-header" style="margin-bottom:8px">
+          <h3>🧪 快速海克斯配裝試算與機制特化路線詳解</h3>
+          <span class="muted" style="font-size:12px">點選下方常用／全海克斯卡片，即會同步寫入上方 4 階段槽位並更新 6 神裝</span>
         </div>
-        <div class="sim-slots">${slotsHtml}</div>
-        <div class="sim-quick-pills">
-          <span class="muted" style="font-size:12px">快速試算：</span>
+        <div class="sim-quick-pills" style="margin-bottom:10px">
+          <span class="muted" style="font-size:12px">常用特化快選：</span>
           ${quickPillsHtml}
         </div>
-        <div class="synth-build-box">
-          <div style="font-size:13px;font-weight:700;color:var(--gold-bright);margin-bottom:8px">
-            🎯 綜合推薦 6 件神裝（青色框＝海克斯專屬特化裝，懸停查看 Riot 16.22 裝備詳細數值）
-          </div>
-          <div class="synth-row">${bootHtml}${itemsHtml}</div>
-          ${avoidHtml}
-        </div>
-        ${synergyDetails ? `<div class="synergy-cards">${synergyDetails}</div>` : `<div class="muted" style="font-size:12px">提示：目前選取的海克斯為純數值強化，請參考下方 OP.GG 核心出裝，或加選機制海克斯查看特化出裝！</div>`}
+        ${synergyDetails ? `<div class="synergy-cards">${synergyDetails}</div>` : `<div class="muted" style="font-size:12px">提示：目前槽位內為純數值強化或尚未選擇機制海克斯；可點擊上方常用特化或下方海克斯卡片查看特化配裝路線！</div>`}
       </div>
     `;
   }
@@ -1441,6 +1494,7 @@
     const cardsHtml = list.map(x => {
       const m = x.meta;
       const isPin = !x.retired && state.pinnedAugs.includes(x.aid);
+      const isEarly = !x.retired && ENG.isEarlyOnlyAug(x.aid);
       const rule = SYN.RULES[x.aid];
       const catMeta = rule ? SYN.CAT_META[rule.cat] : null;
       return `
@@ -1448,7 +1502,10 @@
           <div class="aug-top">
             <img src="${esc(m.img)}" alt="${esc(m.name)}" loading="lazy" />
             <div style="flex:1;min-width:0">
-              <div class="aug-name">${esc(m.name)} ${x.retired ? `<span class="t-badge" style="background:rgba(148,163,184,.18);color:var(--muted)">非本賽季</span>` : ""}</div>
+              <div class="aug-name">
+                ${esc(m.name)}
+                ${x.retired ? `<span class="t-badge" style="background:rgba(148,163,184,.18);color:var(--muted)">非本賽季</span>` : (isEarly ? `<span class="t-badge" style="background:rgba(245,158,11,.15);color:var(--gold);border:1px solid rgba(245,158,11,.35)">⏳ 限前兩輪</span>` : "")}
+              </div>
               <div class="aug-stats">
                 <span class="t-badge t-${x.tier}">${TIER_LABEL[x.tier]}</span>
                 <span class="t-badge rar-tag-${m.rarity}">${RARITY_ZH[m.rarity] || ""}</span>
@@ -1491,21 +1548,30 @@
   }
 
   function renderChampRightColumn(c) {
-    const combosHtml = (c.combos || []).map((cb, idx) => `
-      <div class="combo-row" data-load-combo="${cb.augs.join(",")}" title="點擊把這三個海克斯一次載入模擬器">
+    const lockedSet = new Set(getLockedAugs());
+    const earlyFull = !!(state.qPicks[1] && state.qPicks[7]);
+    const combosHtml = (c.combos || []).map((cb, idx) => {
+      const earlyIds = cb.augs.filter(aid => ENG.isEarlyOnlyAug(aid));
+      const missedEarly = cb.augs.filter(aid => ENG.isEarlyOnlyAug(aid) && !lockedSet.has(aid));
+      const blockedNow = (state.qLevel >= 11 || earlyFull) && missedEarly.length > 0;
+      return `
+      <div class="combo-row" style="${blockedNow ? "opacity:0.65;border-color:rgba(248,113,113,0.35)" : ""}" data-load-combo="${cb.augs.join(",")}" title="${blockedNow ? "含已錯過的「前兩輪限定」海克斯，但仍可點擊載入模擬" : "點擊把這三個海克斯一次依階段載入槽位"}">
         <div class="combo-augs">
           <b class="muted">#${idx + 1}</b>
           ${cb.augs.map(aid => {
             const m = DATA.augments[String(aid)];
-            return m ? `<span class="combo-aug-pill"><img src="${esc(m.img)}" alt="" />${esc(m.name)}</span>` : "";
+            const eTag = ENG.isEarlyOnlyAug(aid) ? ` ⏳` : "";
+            return m ? `<span class="combo-aug-pill"><img src="${esc(m.img)}" alt="" />${esc(m.name)}${eTag}</span>` : "";
           }).join("")}
+          ${blockedNow ? `<span class="chip" style="padding:0 5px;font-size:10px;border-color:rgba(248,113,113,.45);color:#fca5a5">錯過前兩輪</span>` : (earlyIds.length ? `<span class="chip" style="padding:0 5px;font-size:10px;border-color:rgba(245,158,11,.45);color:var(--gold)">⏳需前兩輪搶</span>` : "")}
         </div>
         <div style="text-align:right;white-space:nowrap">
           <div class="mono" style="font-weight:800;color:var(--green)">${cb.wr.toFixed(1)}%</div>
           <div class="muted mono" style="font-size:11px">${esc(cb.games)} 場</div>
         </div>
       </div>
-    `).join("");
+    `;
+    }).join("");
 
     let archHtml = "";
     if (c.arch && c.arch.length) {
@@ -1621,37 +1687,44 @@
     `;
   }
 
-  function attachDetailListeners(c) {
+  function attachDetailListeners(c, ctx) {
     const det = document.getElementById("champDetailContainer");
     const tsk = document.getElementById("toggleSkillsBtn");
     if (tsk) tsk.onclick = () => { state.showSkills = !state.showSkills; renderChampionDetail(); };
-    const clr = document.getElementById("clearPinsBtn");
-    if (clr) clr.onclick = () => { state.pinnedAugs = []; renderChampionDetail(); };
+
+    det.querySelectorAll("[data-subtab]").forEach(b => {
+      b.onclick = () => { state.champSubTab = b.dataset.subtab; renderChampionDetail(); };
+    });
+
+    attachUnifiedStageListeners(det, c, ctx);
+
     const spc = document.getElementById("sendPinToCalcBtn");
     if (spc) spc.onclick = () => {
-      const synth = SYN.synthesizeBuild(c, state.pinnedAugs, DATA);
+      const augsToUse = ctx.liveAugsUsed;
+      const synth = SYN.synthesizeBuild(c, augsToUse, DATA);
       const ids = [];
       if (synth.boots) ids.push(synth.boots.id);
       synth.items.forEach(x => ids.push(x.id));
       while (ids.length < 6) ids.push(0);
       state.calcItems = ids.slice(0, 6);
-      state.calcAugs = [...state.pinnedAugs];
+      state.calcLevel = state.qLevel === 1 ? 3 : (state.qLevel === 7 ? 7 : (state.qLevel === 11 ? 11 : 16));
+      state.calcAugs = augsToUse.slice(0, 4);
       switchView("calc");
     };
 
-    det.querySelectorAll("[data-unpin]").forEach(btn => {
-      btn.onclick = (e) => { e.stopPropagation(); state.pinnedAugs = state.pinnedAugs.filter(x => x !== Number(btn.dataset.unpin)); renderChampionDetail(); };
-    });
     det.querySelectorAll("[data-toggle-pin]").forEach(el => {
       el.onclick = () => {
-        const id = Number(el.dataset.togglePin);
-        if (state.pinnedAugs.includes(id)) state.pinnedAugs = state.pinnedAugs.filter(x => x !== id);
-        else { if (state.pinnedAugs.length >= 4) state.pinnedAugs.shift(); state.pinnedAugs.push(id); }
+        toggleAugInSlots(Number(el.dataset.togglePin));
         renderChampionDetail();
       };
     });
     det.querySelectorAll("[data-load-combo]").forEach(el => {
-      el.onclick = () => { state.pinnedAugs = el.dataset.loadCombo.split(",").map(Number).filter(Boolean).slice(0, 4); renderChampionDetail(); window.scrollTo({ top: 180, behavior: "smooth" }); };
+      el.onclick = () => {
+        const ids = el.dataset.loadCombo.split(",").map(Number).filter(Boolean).slice(0, 4);
+        setAugSlotsFromList(ids);
+        renderChampionDetail();
+        window.scrollTo({ top: 180, behavior: "smooth" });
+      };
     });
     det.querySelectorAll("[data-arch-idx]").forEach(el => {
       el.onclick = () => { state.activeArchIdx = Number(el.dataset.archIdx); renderChampionDetail(); };
@@ -1727,6 +1800,7 @@
                 <h2 style="margin:0;color:var(--gold-bright)">${esc(selAug.name)}</h2>
                 <span class="t-badge t-${selAug.gTier}">${TIER_LABEL[selAug.gTier]}</span>
                 <span class="t-badge rar-tag-${selAug.rarity}">${RARITY_ZH[selAug.rarity] || ""}</span>
+                ${ENG.isEarlyOnlyAug(selAug.id) ? `<span class="chip" style="border-color:rgba(245,158,11,.5);color:var(--gold-bright)">⏳ 限前兩輪 (Lv 1 / Lv 7)，後兩輪正常抽不到</span>` : ""}
                 ${catMeta ? `<span class="chip" style="border-color:${catMeta.color};color:${catMeta.color}">${catMeta.icon} ${esc(catMeta.label)}</span>` : ""}
               </div>
               <p style="margin:6px 0;color:var(--text);font-size:13.5px">${esc(selAug.desc)}</p>
@@ -1791,7 +1865,7 @@
     view.querySelectorAll("[data-ec]").forEach(b => b.onclick = () => { state.encCat = b.dataset.ec; renderAugmentEncyclopedia(); });
     view.querySelectorAll("[data-sel-aug]").forEach(b => b.onclick = () => { state.encSelectedAugId = Number(b.dataset.selAug); renderAugmentEncyclopedia(); });
     view.querySelectorAll("[data-open-champ-aug]").forEach(b => b.onclick = () => {
-      const [ck, aid] = b.dataset.openChampAug.split(":"); selectChampion(ck, Number(aid)); switchView("champion");
+      const [ck, aid] = b.dataset.openChampAug.split(":"); selectChampion(ck, Number(aid)); state.champSubTab = "build"; switchView("champion");
     });
   }
 
@@ -1842,7 +1916,7 @@
       <div class="cheat-grid">${cards}</div>
     `;
     view.querySelectorAll("[data-open-champ-aug]").forEach(b => b.onclick = () => {
-      const [ck, aid] = b.dataset.openChampAug.split(":"); selectChampion(ck, Number(aid)); switchView("champion");
+      const [ck, aid] = b.dataset.openChampAug.split(":"); selectChampion(ck, Number(aid)); state.champSubTab = "build"; switchView("champion");
     });
     view.querySelectorAll("[data-goto-enc]").forEach(b => b.onclick = () => {
       state.encSelectedAugId = Number(b.dataset.gotoEnc); switchView("augments");
@@ -1922,6 +1996,7 @@
     });
   }
 
-  // Initial render (Quick Advisor default main page!)
-  renderQuickAdvisor();
+  // Initial render (Unified Pick Decision & Champion Build Workspace!)
+  renderChampionGrid();
+  renderChampionDetail();
 })();

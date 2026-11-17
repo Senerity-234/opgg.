@@ -31,6 +31,30 @@ window.HEX_ENGINE = (function () {
     3176: { name: "強化！", allowed: ["Q", "W", "E", "R"], defaultSkill: "Q", desc: "強化指定技能：+20 技能加速、+10% 傷害/治護" }
   };
 
+  // Augments restricted by ARAM: Mayhem / Arena rules to the first 2 augment rounds (Lv 1 / Lv 7)
+  // They cannot be rolled normally in the last 2 augment rounds (Lv 11 / Lv 15).
+  const EARLY_ONLY_AUG_IDS = new Set([
+    1390, // 極度邪惡 (若這是你拿的第二件增幅裝置，開始時有40魔攻)
+    1375, // 食魂者 (若這是你拿的第二件增幅裝置，開始時有300生命)
+    1152, // 心鋼起來 (任務：300層雄心之鋼)
+    1156, // 烏莉特的法帽 (任務：死帽＋金人)
+    2141, // 究極九頭蛇 (任務：三把九頭蛇)
+    1361, // 伊卡西亞殞落 (任務：日炎＋虛偽光彩)
+    1154, // 阿福英雄 (任務：參與擊殺拿黃金鍋鏟)
+    1343  // 球鞋收藏家 (任務：升級版靴子換嘉文一世的靴子)
+  ]);
+
+  function isEarlyOnlyAug(augId) {
+    return EARLY_ONLY_AUG_IDS.has(Number(augId));
+  }
+
+  function isAugAvailableAtStage(augMetaOrId, levelStage) {
+    const id = typeof augMetaOrId === "object" && augMetaOrId ? Number(augMetaOrId.id) : Number(augMetaOrId);
+    if (!id) return false;
+    if (levelStage >= 11 && EARLY_ONLY_AUG_IDS.has(id)) return false;
+    return true;
+  }
+
   // ---------- PART 1: QUICK PICK DECISION ENGINE ----------
   const STACK_QUEST_IDS = new Set([
     1390, 1353, 1375, 1152, 1156, 2141, 1361, 3081, 1384, 1320, 1319, 1204, 1337, 2102, 2100, 2116, 2103
@@ -170,11 +194,16 @@ window.HEX_ENGINE = (function () {
       const stageNotes = [];
       const isQuest = STACK_QUEST_IDS.has(aid);
       const isCap = CAPSTONE_MULT_IDS.has(aid);
+      const isEarlyOnly = EARLY_ONLY_AUG_IDS.has(aid);
+      const unavailableAtStage = !isAugAvailableAtStage(aid, levelStage);
 
       if (levelStage === 1) {
-        if (isQuest) {
-          stageAdj += 2.2;
-          stageNotes.push("Lv 1 開局選取：有整場時間疊層／解任務，成長收益最大 (+2.2%)");
+        if (isEarlyOnly) {
+          stageAdj += 2.5;
+          stageNotes.push("⏳ 前兩輪限定：後兩輪（Lv 11 / Lv 15）不會再出現，開局拿下即享整場任務成長 (+2.5%)");
+        } else if (isQuest) {
+          stageAdj += 2.0;
+          stageNotes.push("Lv 1 開局選取：有整場時間疊層／解任務，成長收益最大 (+2.0%)");
         } else if (aid === 1030 || aid === 1048) {
           stageAdj -= 0.3;
           stageNotes.push("Lv 1 提示：前期尚無裝備時偏弱，但中後期極強 (-0.3%)");
@@ -182,7 +211,10 @@ window.HEX_ENGINE = (function () {
           stageNotes.push("Lv 1 即戰力穩定");
         }
       } else if (levelStage === 7) {
-        if (isQuest) {
+        if (isEarlyOnly) {
+          stageAdj += 1.6;
+          stageNotes.push("⏳ 前兩輪最後機會：此海克斯在 Lv 11 / Lv 15 選不到，想組此流派須本輪鎖定 (+1.6%)");
+        } else if (isQuest) {
           stageAdj += 0.8;
           stageNotes.push("Lv 7 第二輪：仍有充足時間完成疊層與任務 (+0.8%)");
         } else if (isCap) {
@@ -192,28 +224,31 @@ window.HEX_ENGINE = (function () {
           stageNotes.push("Lv 7 穩健發揮");
         }
       } else if (levelStage === 11) {
-        if (isQuest) {
-          if (aid === 1152 || aid === 2141 || aid === 1361) {
-            stageAdj -= 1.8;
-            stageNotes.push("Lv 11 節奏提醒：此時才開啟高門檻裝備任務較拖節奏 (-1.8%)");
-          } else if (aid === 1384) {
+        if (isEarlyOnly) {
+          stageAdj -= 4.5;
+          stageNotes.push("🚫 後兩輪規則限制：此海克斯僅限前兩輪（Lv 1 / Lv 7）抽選，Lv 11 正常選牌不會出現（僅質變隨機例外）");
+        } else if (isQuest) {
+          if (aid === 1384) {
             stageAdj += 0.3;
             stageNotes.push("Lv 11 斗內：可直接補出關鍵第三件大裝 (+0.3%)");
           } else {
-            stageAdj -= 0.9;
-            stageNotes.push("Lv 11 成長折減：疊層時間少於前期 (-0.9%)");
+            stageAdj -= 1.0;
+            stageNotes.push("Lv 11 成長折減：疊層時間少於前期 (-1.0%)");
           }
         } else if (isCap) {
-          stageAdj += 1.6;
-          stageNotes.push("Lv 11 核心放大期：身上已有 2~3 件裝，倍率收益顯著 (+1.6%)");
+          stageAdj += 1.7;
+          stageNotes.push("Lv 11 核心放大期：身上已有 2~3 件裝，倍率收益顯著 (+1.7%)");
         } else {
           stageNotes.push("Lv 11 即戰力達標");
         }
       } else if (levelStage === 15) {
-        if (isQuest) {
-          if (aid === 1152 || aid === 2141 || aid === 1361 || aid === 1390 || aid === 1353 || aid === 1375) {
-            stageAdj -= 3.8;
-            stageNotes.push("⚠️ Lv 15 終局警告：剩餘回合極少，慢熱疊層／重頭做任務幾乎無法疊滿 (-3.8%)");
+        if (isEarlyOnly) {
+          stageAdj -= 5.5;
+          stageNotes.push("🚫 後兩輪規則限制：此海克斯僅限前兩輪（Lv 1 / Lv 7）抽選，Lv 15 正常選牌不會出現");
+        } else if (isQuest) {
+          if (aid === 1353 || aid === 1204 || aid === 1337) {
+            stageAdj -= 3.5;
+            stageNotes.push("⚠️ Lv 15 終局警告：剩餘回合極少，慢熱疊層／重頭做任務幾乎無法疊滿 (-3.5%)");
           } else if (aid === 1384) {
             stageAdj -= 1.2;
             stageNotes.push("Lv 15 經濟溢出提醒：滿裝後 1750 金錢收益下降 (-1.2%)");
@@ -244,10 +279,14 @@ window.HEX_ENGINE = (function () {
         synReasons.push("⚠️ 與已選海克斯重複");
       }
 
+      // Check 3-augment golden combos ONLY if unpicked remaining members can still roll!
       for (const cb of (champ.combos || [])) {
         if (!cb.augs.includes(aid)) continue;
         const matchedPrev = cb.augs.filter(x => x !== aid && prevSet.has(x));
         if (matchedPrev.length >= 1) {
+          const missingOthers = cb.augs.filter(x => x !== aid && !prevSet.has(x));
+          const missedEarly = levelStage >= 11 && missingOthers.some(x => EARLY_ONLY_AUG_IDS.has(x));
+          if (missedEarly) continue; // Cannot finish this 3-aug combo because missing piece was early-only!
           const boost = matchedPrev.length >= 2 ? 4.8 : Math.max(1.8, (cb.wr - champ.wr) * 0.16);
           synAdj += boost;
           const names = matchedPrev.map(x => data.augments[String(x)]?.name || x).join(" + ");
@@ -276,6 +315,8 @@ window.HEX_ENGINE = (function () {
         id: aid,
         meta: augMeta,
         base,
+        isEarlyOnly,
+        unavailableAtStage,
         stageAdj: Math.round(stageAdj * 10) / 10,
         synAdj: Math.round(synAdj * 10) / 10,
         finalScore: Math.round(finalScore * 100) / 100,
@@ -286,6 +327,68 @@ window.HEX_ENGINE = (function () {
 
     results.sort((a, b) => b.finalScore - a.finalScore);
     return results;
+  }
+
+  // Recommend achievable follow-up augments for the remaining stages
+  // When remainingMinStage >= 11 (after Lv 7), excludes all EARLY_ONLY_AUG_IDS that cannot roll in Lv 11 / Lv 15.
+  function recommendNextAugments(champ, remainingMinStage, lockedAugIds, data) {
+    const lockedSet = new Set((lockedAugIds || []).filter(Boolean).map(Number));
+    const scored = [];
+
+    for (const entry of (champ.augs || [])) {
+      const [aid, tier, perf, pop] = entry;
+      if (pop <= 0 || lockedSet.has(aid)) continue;
+      const meta = data.augments[String(aid)];
+      if (!meta || isAugRetired(meta)) continue;
+      const isEarly = EARLY_ONLY_AUG_IDS.has(aid);
+      if (remainingMinStage >= 11 && isEarly) continue;
+
+      let conflict = false;
+      for (const [a, b] of AUG_CONFLICTS) {
+        if ((a === aid && lockedSet.has(b)) || (b === aid && lockedSet.has(a))) { conflict = true; break; }
+      }
+      if (conflict) continue;
+
+      let synScore = 0;
+      const reasons = [];
+      for (const [a, b, bonus, reason] of AUG_SYNERGIES) {
+        if ((a === aid && lockedSet.has(b)) || (b === aid && lockedSet.has(a))) {
+          synScore += bonus * 2.5;
+          reasons.push(reason);
+        }
+      }
+      for (const cb of (champ.combos || [])) {
+        if (!cb.augs.includes(aid)) continue;
+        const missing = cb.augs.filter(x => x !== aid && !lockedSet.has(x));
+        if (remainingMinStage >= 11 && missing.some(x => EARLY_ONLY_AUG_IDS.has(x))) continue;
+        const matched = cb.augs.filter(x => x !== aid && lockedSet.has(x));
+        if (matched.length >= 1) {
+          synScore += matched.length >= 2 ? 12 : 6;
+          if (!reasons.length) reasons.push(`與已選構成 ${cb.wr.toFixed(1)}% 黃金組合`);
+          break;
+        }
+      }
+
+      const wrArr = champ.augWr && champ.augWr[String(aid)];
+      const baseScore = (wrArr && wrArr[0] ? (wrArr[0] - 48) * 1.4 : (5 - tier) * 2.2) + (perf - 50) * 0.12;
+      const lateBonus = remainingMinStage >= 11 && CAPSTONE_MULT_IDS.has(aid) ? 3.5 : 0;
+      const total = synScore + baseScore + lateBonus;
+
+      scored.push({
+        id: aid,
+        meta,
+        tier,
+        perf,
+        wr: wrArr ? wrArr[0] : null,
+        isEarly,
+        synScore,
+        reason: reasons[0] || (lateBonus > 0 ? "後兩輪高倍率核心" : `OP.GG ${tier === 0 ? "T0" : "T" + tier} 高勝推薦`),
+        total
+      });
+    }
+
+    scored.sort((a, b) => b.total - a.total);
+    return scored.slice(0, 6);
   }
 
   // ---------- PART 2: HERO GROWTH & DAMAGE SIMULATOR ----------
@@ -877,10 +980,14 @@ window.HEX_ENGINE = (function () {
 
   return {
     SKILL_TARGET_AUGS,
+    EARLY_ONLY_AUG_IDS,
     isAugRetired,
+    isEarlyOnlyAug,
+    isAugAvailableAtStage,
     isAugEligibleForChamp,
     getChampAugEntry,
     evaluateQuickChoices,
+    recommendNextAugments,
     simulateBuild,
     computeGrowthCurve,
     defaultSkillRanks
