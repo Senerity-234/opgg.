@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoL 海克斯大亂鬥全書 · Patch 16.22 | 局內選牌決策 × 傷害成長模擬 × 特化裝備攻略</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-hex">⬡</div>
+        <div>
+          <div class="brand-title">LoL 海克斯大亂鬥全書</div>
+          <div class="brand-sub">ARAM: Mayhem · Patch <span id="patchBadge">16.22</span> · OP.GG × ARAMGG × Riot 實戰庫</div>
+        </div>
+      </div>
+
+      <nav class="main-nav" id="mainNav">
+        <button class="nav-btn active" data-view="quick">⚡ 局內選牌決策</button>
+        <button class="nav-btn" data-view="calc">🧮 傷害與成長模擬</button>
+        <button class="nav-btn" data-view="champion">🦸 英雄全覽與配裝</button>
+        <button class="nav-btn" data-view="augments">✨ 海克斯反查圖鑑</button>
+        <button class="nav-btn" data-view="cheatsheet">📜 機制特化速查</button>
+        <button class="nav-btn" data-view="tierlist">🏆 全英雄強度榜</button>
+      </nav>
+
+      <div class="global-search-wrap">
+        <input id="globalSearchInput" type="search" placeholder="快搜英雄或海克斯 (如: 凱特琳、幻影武器)..." autocomplete="off" />
+        <div id="globalSearchDropdown" class="search-dropdown hidden"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- VIEW 0 (DEFAULT QUICK MAIN PAGE): IN-GAME 3-CHOICE PICK ADVISOR -->
+    <section id="view-quick" class="view active"></section>
+
+    <!-- VIEW 1: DAMAGE & GROWTH SIMULATOR -->
+    <section id="view-calc" class="view"></section>
+
+    <!-- VIEW 2: CHAMPION EXPLORER -->
+    <section id="view-champion" class="view">
+      <div class="panel picker-panel">
+        <div class="picker-controls">
+          <div class="picker-title-row">
+            <h2>選擇英雄 <span class="muted-count" id="champCountLabel">(173)</span></h2>
+            <button id="togglePickerBtn" class="btn-ghost btn-sm">收合列表 ▲</button>
+          </div>
+          <div class="picker-filters">
+            <input id="champSearchInput" type="search" placeholder="篩選英雄名稱 / 英文 / 稱號..." class="input-sm" />
+            <div class="pill-group" id="roleFilterGroup">
+              <button class="pill active" data-role="ALL">全部定位</button>
+              <button class="pill" data-role="Mage">法師</button>
+              <button class="pill" data-role="Fighter">戰士</button>
+              <button class="pill" data-role="Assassin">刺客</button>
+              <button class="pill" data-role="Marksman">射手</button>
+              <button class="pill" data-role="Tank">坦克</button>
+              <button class="pill" data-role="Support">輔助</button>
+            </div>
+            <div class="pill-group" id="tierFilterGroup">
+              <button class="pill active" data-tier="ALL">全梯隊</button>
+              <button class="pill tier-0" data-tier="0">T0 OP</button>
+              <button class="pill tier-1" data-tier="1">T1</button>
+              <button class="pill tier-2" data-tier="2">T2</button>
+              <button class="pill tier-3" data-tier="3">T3</button>
+              <button class="pill tier-4" data-tier="4">T4</button>
+            </div>
+          </div>
+        </div>
+        <div id="champGrid" class="champ-grid"></div>
+      </div>
+      <div id="champDetailContainer"></div>
+    </section>
+
+    <!-- VIEW 3: AUGMENT ENCYCLOPEDIA -->
+    <section id="view-augments" class="view"></section>
+
+    <!-- VIEW 4: MECHANICS CHEAT-SHEET -->
+    <section id="view-cheatsheet" class="view"></section>
+
+    <!-- VIEW 5: TIER LIST -->
+    <section id="view-tierlist" class="view"></section>
+  </main>
+
+  <div id="floatingTooltip" class="floating-tooltip hidden"></div>
+
+  <footer class="footer">
+    <div>數據來源：OP.GG (Patch 16.22 zh-tw) · ARAMGG 實戰樣本 · Riot DataDragon 16.22.1 · Meraki 技能數值庫</div>
+    <div>含全部 173 位英雄、257 個海克斯強化符文、169 件裝備、選牌決策台與技能傷害成長模擬器</div>
+  </footer>
+
+  <script src="./data.js"></script>
+  <script src="./synergy.js"></script>
+  <script src="./engine.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
