@@ -29,6 +29,8 @@
         <input id="globalSearchInput" type="search" placeholder="快搜英雄或海克斯 (如: 凱特琳、幻影武器)..." autocomplete="off" />
         <div id="globalSearchDropdown" class="search-dropdown hidden"></div>
       </div>
+
+      <button id="syncStatusBtn" class="sync-pill" title="檢查或立即同步最新資料">🔄 資料檢查中...</button>
     </div>
   </header>
 
@@ -86,8 +88,8 @@
   <div id="floatingTooltip" class="floating-tooltip hidden"></div>
 
   <footer class="footer">
-    <div>數據來源：OP.GG (Patch 16.22 zh-tw) · ARAMGG 實戰樣本 · Riot DataDragon 16.22.1 · Meraki 技能數值庫</div>
-    <div>含全部 173 位英雄、257 個海克斯強化符文、169 件裝備、選牌決策台與技能傷害成長模擬器</div>
+    <div>數據來源：OP.GG (Patch <span id="footerPatch">16.22</span> zh-tw) · ARAMGG 實戰樣本 · Riot DataDragon · Meraki 技能數值庫 <span id="footerSyncMeta"></span></div>
+    <div>含全部英雄、海克斯強化符文、裝備、選牌決策台與技能傷害成長模擬器</div>
   </footer>
 
   <script src="./data.js"></script>

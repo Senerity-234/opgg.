@@ -1,5 +1,5 @@
 (function () {
-  const DATA = window.HEX_DATA;
+  let DATA = window.HEX_DATA;
   const SYN = window.HEX_SYNERGY;
   const ENG = window.HEX_ENGINE;
   if (!DATA || !SYN || !ENG) {
@@ -13,25 +13,38 @@
   const PROFILE_ZH = { AP: "AP 法傷", AD: "AD 物理", CRIT: "暴擊輸出", ONHIT: "命中特效", TANK: "前排坦克", SUPPORT: "治療護盾輔助" };
   const DMG_TYPE_ZH = { PHYSICAL_DAMAGE: "物理傷害", MAGIC_DAMAGE: "魔法傷害", TRUE_DAMAGE: "真實傷害" };
 
-  const champById = {};
-  const champByKey = {};
-  DATA.champions.forEach(c => {
-    champById[c.id] = c;
-    champByKey[c.key] = c;
-  });
+  let champById = {};
+  let champByKey = {};
+  let augToChamps = {};
 
-  // Reverse index: augId -> sorted champion entries
-  const augToChamps = {};
-  DATA.champions.forEach(c => {
-    (c.augs || []).forEach(a => {
-      const [aid, tier, perf, pop] = a;
-      if (!augToChamps[aid]) augToChamps[aid] = [];
-      augToChamps[aid].push({ champ: c, tier, perf, pop });
+  function rebuildDataIndexes(newData) {
+    DATA = newData;
+    champById = {};
+    champByKey = {};
+    DATA.champions.forEach(c => {
+      champById[c.id] = c;
+      champByKey[c.key] = c;
     });
-  });
-  Object.keys(augToChamps).forEach(aid => {
-    augToChamps[aid].sort((x, y) => (x.tier - y.tier) || (y.perf - x.perf));
-  });
+    augToChamps = {};
+    DATA.champions.forEach(c => {
+      (c.augs || []).forEach(a => {
+        const [aid, tier, perf, pop] = a;
+        if (!augToChamps[aid]) augToChamps[aid] = [];
+        augToChamps[aid].push({ champ: c, tier, perf, pop });
+      });
+    });
+    Object.keys(augToChamps).forEach(aid => {
+      augToChamps[aid].sort((x, y) => (x.tier - y.tier) || (y.perf - x.perf));
+    });
+    const pb = document.getElementById("patchBadge");
+    if (pb && DATA.patch) pb.textContent = DATA.patch;
+    const fp = document.getElementById("footerPatch");
+    if (fp && DATA.patch) fp.textContent = DATA.patch;
+    const fm = document.getElementById("footerSyncMeta");
+    if (fm && DATA.generatedAt) fm.textContent = `· 最近同步：${DATA.generatedAt}`;
+  }
+
+  rebuildDataIndexes(DATA);
 
   const state = {
     view: "champion",
@@ -359,10 +372,12 @@
   function openAugModal(champ, title, onSelectAug, opts = {}) {
     const onlyEligible = !!opts.onlyEligible;
     const levelStage = opts.levelStage || 0;
+    const excludeSet = new Set((opts.excludeIds || []).filter(Boolean).map(Number));
     const augLookup = {};
     (champ.augs || []).forEach(a => { augLookup[a[0]] = a; });
     const entries = Object.values(DATA.augments)
       .filter(a => {
+        if (excludeSet.has(a.id)) return false;
         if (onlyEligible) {
           return !ENG.isAugRetired(a) && !!augLookup[a.id];
         }
@@ -502,8 +517,9 @@
       `;
     }).join("");
 
+    const lockedAndOptSet = new Set([...allLockedAugs, ...state.qOptions.filter(Boolean)].map(Number));
     const topAugsForChamp = (c.augs || [])
-      .filter(a => a[3] > 0)
+      .filter(a => a[3] > 0 && !lockedAndOptSet.has(a[0]))
       .map(a => DATA.augments[String(a[0])])
       .filter(a => a && !ENG.isAugRetired(a) && ENG.isAugAvailableAtStage(a, state.qLevel) && (state.qQuickRarity === "ALL" || String(a.rarity) === state.qQuickRarity));
 
@@ -675,11 +691,13 @@
       btn.onclick = (e) => {
         e.stopPropagation();
         const lv = Number(btn.dataset.editStage);
+        const excludeIds = STAGES.filter(s => s !== lv).map(s => state.qPicks[s]).filter(Boolean);
         openAugModal(c, `設定 Lv ${lv} 海克斯 (僅顯示 ${c.name} 本輪可選)`, (aid) => {
+          STAGES.forEach(s => { if (state.qPicks[s] === aid) state.qPicks[s] = 0; });
           state.qPicks[lv] = aid;
           syncPinnedFromPicks();
           renderChampionDetail();
-        }, { onlyEligible: true, levelStage: lv });
+        }, { onlyEligible: true, levelStage: lv, excludeIds });
       };
     });
     det.querySelectorAll("[data-clear-stage]").forEach(btn => {
@@ -695,10 +713,11 @@
       el.onclick = (e) => {
         if (e.target.closest("[data-clear-opt]")) return;
         const idx = Number(el.dataset.pickOpt);
+        const excludeIds = [...getLockedAugs(), ...state.qOptions.filter((id, i) => i !== idx && id)];
         openAugModal(c, `選擇 Lv ${state.qLevel} 選項 ${["A", "B", "C"][idx]} (僅顯示 ${c.name} 本輪可選)`, (aid) => {
           state.qOptions[idx] = aid;
           renderChampionDetail();
-        }, { onlyEligible: true, levelStage: state.qLevel });
+        }, { onlyEligible: true, levelStage: state.qLevel, excludeIds });
       };
     });
     det.querySelectorAll("[data-clear-opt]").forEach(btn => {
@@ -710,6 +729,7 @@
     det.querySelectorAll("[data-qfill]").forEach(btn => {
       btn.onclick = () => {
         const aid = Number(btn.dataset.qfill);
+        if (state.qOptions.includes(aid)) return;
         const emptyIdx = state.qOptions.findIndex(x => !x);
         if (emptyIdx >= 0) state.qOptions[emptyIdx] = aid;
         else state.qOptions = [state.qOptions[1], state.qOptions[2], aid];
@@ -720,6 +740,7 @@
     det.querySelectorAll("[data-commit-pick]").forEach(btn => {
       btn.onclick = () => {
         const chosenId = Number(btn.dataset.commitPick);
+        STAGES.forEach(s => { if (state.qPicks[s] === chosenId) state.qPicks[s] = 0; });
         state.qPicks[state.qLevel] = chosenId;
         syncPinnedFromPicks();
         if (ctx.nextLv) {
@@ -951,14 +972,13 @@
                 ${stacksSubHtml}
               </div>
             ` : ""}
-            <div class="muted" style="font-size:11px;margin:8px 0 5px">一鍵切換常見數值／機制海克斯：</div>
+            <div class="muted" style="font-size:11px;margin:8px 0 5px">快捷加入數值／機制海克斯（已選項目已從列表移除，點上方 × 可退回）：</div>
             <div style="display:flex;flex-wrap:wrap;gap:5px">
-              ${quickAugIds.map(aid => {
+              ${quickAugIds.filter(aid => !state.calcAugs.includes(aid)).map(aid => {
                 const m = DATA.augments[String(aid)];
                 if (!m || ENG.isAugRetired(m)) return "";
-                const active = state.calcAugs.includes(aid);
-                return `<button class="pill rar-${m.rarity} ${active ? "active" : ""}" data-calc-tgl-aug="${aid}" style="font-size:11px;padding:3px 8px">${active ? "✓ " : "+ "}${esc(m.name)}</button>`;
-              }).join("")}
+                return `<button class="pill rar-${m.rarity}" data-calc-tgl-aug="${aid}" style="font-size:11px;padding:3px 8px">+ ${esc(m.name)}</button>`;
+              }).join("") || `<span class="muted" style="font-size:11px">快捷海克斯皆已加入上方</span>`}
             </div>
           </div>
 
@@ -1109,7 +1129,7 @@
     view.querySelector("#calcAddAugBtn").onclick = () => openAugModal(c, "新增海克斯強化至模擬器", (aid) => {
       if (!state.calcAugs.includes(aid)) state.calcAugs.push(aid);
       renderSimulatorCalc();
-    });
+    }, { excludeIds: state.calcAugs });
     view.querySelectorAll("[data-calc-rm-aug]").forEach(b => {
       b.onclick = () => { state.calcAugs = state.calcAugs.filter(x => x !== Number(b.dataset.calcRmAug)); renderSimulatorCalc(); };
     });
@@ -1414,13 +1434,13 @@
 
   function renderBuildSubSection(c, ctx) {
     const pinned = ctx.allLockedAugs;
-    const topSynAugs = (c.augs || []).filter(a => SYN.RULES[a[0]] && a[1] <= 2 && !ENG.isAugRetired(DATA.augments[String(a[0])])).sort((a, b) => (a[1] - b[1]) || (b[2] - a[2])).slice(0, 8);
-    const quickIds = [...new Set([...topSynAugs.map(x => x[0]), 1029, 1002, 1030, 1048, 1129, 1045])].slice(0, 10);
+    const pinnedSet = new Set(pinned);
+    const topSynAugs = (c.augs || []).filter(a => SYN.RULES[a[0]] && a[1] <= 2 && !ENG.isAugRetired(DATA.augments[String(a[0])]) && !pinnedSet.has(a[0])).sort((a, b) => (a[1] - b[1]) || (b[2] - a[2])).slice(0, 10);
+    const quickIds = [...new Set([...topSynAugs.map(x => x[0]), 1029, 1002, 1030, 1048, 1129, 1045])].filter(aid => !pinnedSet.has(aid)).slice(0, 10);
     const quickPillsHtml = quickIds.map(aid => {
       const m = DATA.augments[String(aid)];
       if (!m || ENG.isAugRetired(m)) return "";
-      const isPin = pinned.includes(aid);
-      return `<button class="pill ${isPin ? "active" : ""}" data-toggle-pin="${aid}">${isPin ? "✓ " : "+ "}${esc(m.name)}</button>`;
+      return `<button class="pill" data-toggle-pin="${aid}">+ ${esc(m.name)}</button>`;
     }).join("");
 
     const synergyDetails = pinned.map(aid => {
@@ -1471,13 +1491,14 @@
 
   function renderChampAugmentsSection(c) {
     const q = state.augSearch.trim().toLowerCase();
+    const pinnedSet = new Set(getLockedAugs());
     let list = (c.augs || []).map(a => {
       const [aid, tier, perf, pop] = a;
       const meta = DATA.augments[String(aid)];
       const realWr = c.augWr && c.augWr[String(aid)] ? c.augWr[String(aid)][0] : null;
       const retired = meta ? ENG.isAugRetired(meta) : false;
       return { aid, tier, perf, pop, realWr, meta, retired };
-    }).filter(x => x.meta);
+    }).filter(x => x.meta && !pinnedSet.has(x.aid));
 
     if (state.augTierFilter !== "ALL") {
       if (state.augTierFilter === "3+") list = list.filter(x => x.tier >= 3);
@@ -1996,7 +2017,113 @@
     });
   }
 
+  // ---------- AUTO-SYNC ON STARTUP & HOT RELOAD ----------
+  function reloadDataBundle() {
+    return new Promise((resolve, reject) => {
+      const sc = document.createElement("script");
+      sc.src = "./data.js?v=" + Date.now();
+      sc.onload = () => {
+        if (window.HEX_DATA) {
+          rebuildDataIndexes(window.HEX_DATA);
+          renderCurrentView();
+          resolve(true);
+        } else {
+          reject(new Error("HEX_DATA missing"));
+        }
+      };
+      sc.onerror = () => reject(new Error("Failed to reload data.js"));
+      document.body.appendChild(sc);
+    });
+  }
+
+  function initAutoSync() {
+    const btn = document.getElementById("syncStatusBtn");
+    if (!btn) return;
+    let pollTimer = null;
+    let loadedGenAt = DATA.generatedAt || "";
+    let hasLocalBackend = false;
+
+    function setPill(cls, text, title) {
+      btn.className = "sync-pill " + (cls || "");
+      btn.textContent = text;
+      if (title) btn.title = title;
+    }
+
+    async function checkLiveRiotPatch() {
+      try {
+        const res = await fetch("https://ddragon.leagueoflegends.com/api/versions.json", { cache: "no-store" });
+        if (!res.ok) return null;
+        const vers = await res.json();
+        return vers && vers[0] ? String(vers[0]) : null;
+      } catch { return null; }
+    }
+
+    async function pollLocalSync() {
+      try {
+        const res = await fetch("./api/sync-status?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("no backend");
+        hasLocalBackend = true;
+        const st = await res.json();
+        if (st.state === "running") {
+          setPill("syncing", `🔄 同步中 ${st.progress || ""}`, st.message || "正在同步最新資料...");
+          if (!pollTimer) pollTimer = setInterval(pollLocalSync, 1800);
+          return true;
+        }
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        if (st.state === "error") {
+          setPill("warn", "⚠️ 同步部分失敗 (點此重試)", st.message || "");
+          return true;
+        }
+        const targetGen = st.generatedAt || loadedGenAt;
+        if (st.state === "done" && st.generatedAt && st.generatedAt !== loadedGenAt) {
+          loadedGenAt = st.generatedAt;
+          await reloadDataBundle();
+        }
+        const shortTime = targetGen ? targetGen.slice(5, 16) : (DATA.generatedAt || "");
+        setPill("synced", `✅ 已同步 Patch ${DATA.patch} (${shortTime})`, `資料時間：${targetGen} · 點擊立即重新同步`);
+        return true;
+      } catch {
+        hasLocalBackend = false;
+        return false;
+      }
+    }
+
+    (async () => {
+      const ok = window.location.protocol.startsWith("http") ? await pollLocalSync() : false;
+      if (!ok) {
+        const liveDdVer = await checkLiveRiotPatch();
+        const livePatch = liveDdVer ? liveDdVer.split(".").slice(0, 2).join(".") : null;
+        if (livePatch && DATA.patch && livePatch !== DATA.patch) {
+          setPill("warn", `🟡 新版 ${livePatch} 可更新`, `目前資料為 ${DATA.patch} (${DATA.generatedAt})，請透過 start_guide.bat 或 serve.ps1 啟動以自動同步最新資料`);
+        } else {
+          const ts = DATA.generatedAt ? DATA.generatedAt.slice(5, 16) : "";
+          setPill("synced", `🟢 Patch ${DATA.patch}${ts ? " · " + ts : ""}`, `資料時間：${DATA.generatedAt || ""}（透過 serve.ps1 / start_guide.bat 啟動時將自動同步最新資料）`);
+        }
+      }
+    })();
+
+    btn.onclick = async () => {
+      if (hasLocalBackend) {
+        setPill("syncing", "🔄 觸發同步中...", "正在向 OP.GG / ARAMGG / Riot 同步最新資料");
+        try {
+          await fetch("./api/sync", { method: "POST", cache: "no-store" });
+          await pollLocalSync();
+        } catch {}
+      } else {
+        setPill("syncing", "🔄 檢查線上版本...", "");
+        const liveDdVer = await checkLiveRiotPatch();
+        const livePatch = liveDdVer ? liveDdVer.split(".").slice(0, 2).join(".") : DATA.patch;
+        setPill(
+          livePatch !== DATA.patch ? "warn" : "synced",
+          livePatch !== DATA.patch ? `🟡 新版 ${livePatch}（需以本機腳本同步）` : `🟢 已為最新 Patch ${DATA.patch}`,
+          "靜態模式僅能檢查版本；使用 start_guide.bat 或 serve.ps1 啟動會自動抓取最新 OP.GG / ARAMGG 資料"
+        );
+      }
+    };
+  }
+
   // Initial render (Unified Pick Decision & Champion Build Workspace!)
   renderChampionGrid();
   renderChampionDetail();
+  initAutoSync();
 })();

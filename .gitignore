@@ -2,5 +2,6 @@
 Thumbs.db
 *.log
 *.tmp
+.cache/
 .vscode/
 .idea/

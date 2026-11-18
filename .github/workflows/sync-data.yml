@@ -1,0 +1,33 @@
+name: Sync Latest ARAM Mayhem Data
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run data sync script
+        shell: pwsh
+        run: |
+          .\sync_data.ps1
+
+      - name: Commit and push updated data.js
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.js
+          if (!(git diff --cached --quiet)) {
+            git commit -m "chore: sync latest OP.GG, ARAMGG and Riot DataDragon data"
+            git push
+          } else {
+            echo "No changes to data.js"
+          }

@@ -75,8 +75,8 @@ window.HEX_SYNERGY = (function () {
         {
           name: "AP 法師/刺客特效流",
           matchProfiles: ["AP"],
-          items: [2510, 3100, 3115, 3087, 4645],
-          note: "「暮夜與黎明」兼顧閃耀劍與雙重命中特效；「巫妖之禍 + 納什之牙」讓 Q/W/E 技能直接打出高爆發魔法附加傷害；「史提克彈簧刀」能透過技能連鎖觸發閃電命中特效。"
+          items: [2510, 3115, 3087, 4645, 3089],
+          note: "「暮夜與黎明」（或改出「巫妖之禍」）提供閃耀劍與雙重命中特效；搭配「納什之牙 + 史提克彈簧刀 + 黯影之炎」讓技能也能觸發連鎖命中爆發。"
         },
         {
           name: "物理戰士/刺客特效流",
@@ -108,7 +108,7 @@ window.HEX_SYNERGY = (function () {
       headline: "蜜蜂爆炸附加「命中效果」→ 遠程法師也能觸發特效裝！",
       mechanic: "技能命中丟出蜂巢，小蜜蜂的持續攻擊會附帶 On-Hit 命中效果，特別適合技能頻率高或混傷英雄。",
       routes: [
-        { name: "AP/混傷蜜蜂特效流", matchProfiles: ["AP"], items: [3115, 2510, 3100, 3087, 6653], note: "納什之牙與暮夜與黎明可讓每波蜜蜂都打出額外魔傷，搭配黎安卓持續磨血極強。" },
+        { name: "AP/混傷蜜蜂特效流", matchProfiles: ["AP"], items: [3115, 2510, 3087, 6653, 3089], note: "納什之牙與暮夜與黎明（或巫妖之禍擇一）可讓每波蜜蜂都打出額外魔傷，搭配黎安卓持續磨血極強。" },
         { name: "AD/攻速蜜蜂特效流", matchProfiles: ["AD", "CRIT", "ONHIT"], items: [3153, 6672, 3124, 3302, 3091], note: "蜜蜂可觸發殞落王者之劍百分比扣血與海妖/智慧末刃特效，壓低前排血線極快。" },
         { name: "坦克蜜蜂黏人流", matchProfiles: ["TANK"], items: [3084, 6662, 3748], note: "前排開戰黏住敵人時，蜜蜂可協助觸發寒冰霸拳與九頭蛇特效。" }
       ]
@@ -122,7 +122,7 @@ window.HEX_SYNERGY = (function () {
       routes: [
         { name: "坦克不死神裝流（極度超模）", matchProfiles: ["TANK"], items: [3084, 2502, 2525, 3121, 6662, 2504], note: "「無盡絕望」約每 2 秒吸一次血、「雄心之鋼」光速疊層、「芬布爾之冬」每 4 秒刷一次護盾、「原質馭帶」救命脈衝 CD 大幅縮短，坦度直接翻倍！" },
         { name: "AP 主動/觸發爆發流", matchProfiles: ["AP"], items: [6655, 3157, 4646, 3102, 3152, 2522], note: "盧登充能、雷霆風暴、中婭沙漏、女妖面紗、火箭腰帶、時現者(2522) 冷卻全面減半，輸出與保命同時拉滿。" },
-        { name: "戰士/刺客護盾與續戰流", matchProfiles: ["AD", "CRIT"], items: [6692, 6610, 3053, 6333, 3156, 3814], note: "星蝕(3秒一次護盾百分比傷)、突破天際(超短CD爆擊回血)、血手、死亡之舞、魔提斯與夜色緣界都能頻繁觸發！" },
+        { name: "戰士/刺客護盾與續戰流", matchProfiles: ["AD", "CRIT"], items: [6692, 6610, 3053, 6333, 3814], note: "星蝕(3秒一次護盾百分比傷)、突破天際(超短CD爆擊回血)、血手（若對面純法傷改換魔提斯）、死亡之舞與夜色緣界都能頻繁觸發！" },
         { name: "輔助團戰主動神裝流", matchProfiles: ["SUPPORT"], items: [3107, 3190, 3222, 2065, 3102], note: "贖罪神石、日輪的加冕、米凱的祝福、蘇瑞亞戰歌每波小團都有得開！" }
       ]
     },
@@ -134,8 +134,8 @@ window.HEX_SYNERGY = (function () {
       mechanic: "提升所有裝備被動/主動造成的傷害 45%，建議多出具有直接傷害特效的裝備。",
       routes: [
         { name: "AP 裝備直傷流", matchProfiles: ["AP"], items: [6655, 4646, 6653, 2503, 3118, 3100], note: "盧登、雷霆風暴、大面具、黑焰火炬、惡意、巫妖之禍的裝備傷害全部吃滿 45% 增幅！" },
-        { name: "AD/特效裝備傷害流", matchProfiles: ["AD", "CRIT", "ONHIT"], items: [6672, 3153, 3087, 6692, 6698, 3748], note: "海妖殺手、彈簧刀、九頭蛇、星蝕與殞落特效傷害大幅提升。" },
-        { name: "坦克灼燒反甲流", matchProfiles: ["TANK"], items: [3084, 3068, 6664, 2502, 3075], note: "日炎、虛偽光彩、無盡絕望、心鋼與反甲傷害全面提升 45%。" }
+        { name: "AD/特效裝備傷害流", matchProfiles: ["AD", "CRIT", "ONHIT"], items: [6672, 3153, 3087, 6692, 6698], note: "海妖殺手、彈簧刀、九頭蛇（瀆神或泰坦擇一）、星蝕與殞落特效傷害大幅提升。" },
+        { name: "坦克灼燒反甲流", matchProfiles: ["TANK"], items: [3084, 3068, 2502, 3075, 2504], note: "日炎（或依敵陣魔傷改出虛偽光彩）、無盡絕望、心鋼與反甲傷害全面提升 45%。" }
       ]
     },
 
@@ -145,7 +145,7 @@ window.HEX_SYNERGY = (function () {
       headline: "普攻附加 75% 魔攻物理傷害 → 高 AP + 攻速/穿透混傷爆發！",
       mechanic: "每次普攻都會附帶高達 75% AP 的額外物理傷害，純 AP 裝就能讓你的普攻痛到像滿裝射手！",
       routes: [
-        { name: "高 AP 攻速平A流", matchProfiles: ["AP", "ONHIT"], items: [3089, 3115, 2510, 3100, 3124, 3087], note: "「死亡之帽」大幅拉高基礎 75% AP 附加傷；「納什之牙 + 暮夜與黎明 + 巫妖之禍」補齊攻速與普攻節奏；物理射手/法師甚至可補「鬼索」或物穿！" },
+        { name: "高 AP 攻速平A流", matchProfiles: ["AP", "ONHIT"], items: [3089, 3115, 2510, 3124, 3087], note: "「死亡之帽」大幅拉高基礎 75% AP 附加傷；「納什之牙 + 暮夜與黎明（或巫妖之禍擇一）」補齊攻速與普攻節奏，搭配鬼索雙重觸發！" },
         { name: "混傷射手轉 AP 流", matchProfiles: ["AD", "CRIT"], items: [3115, 3089, 3124, 3302, 3087], note: "凱莎、法洛士、庫奇、提摩、凱爾拿此符文可轉出納什+死帽+鬼索，物理+魔法+75%AP混傷極難針對！" }
       ]
     },
@@ -237,7 +237,7 @@ window.HEX_SYNERGY = (function () {
       headline: "普攻疊 AP、技能疊 AD → 穿插平A與技能的混傷大魔王！",
       mechanic: "普攻越打 AP 越高，技能越放 AD 越高！必須選擇攻速快或能頻繁穿插技能與普攻的出裝。",
       routes: [
-        { name: "攻速+技能穿插雙修流", matchProfiles: ["AP", "AD", "ONHIT", "CRIT"], items: [3124, 3115, 2510, 3146, 3078, 3302], note: "「鬼索的狂暴之刃」「納什之牙」「暮夜與黎明」「海克斯科技槍刃」「臨界點」完美同時吃滿 AD 與 AP 雙重成長！" }
+        { name: "攻速+技能穿插雙修流", matchProfiles: ["AP", "AD", "ONHIT", "CRIT"], items: [3124, 3115, 2510, 3146, 3302], note: "「鬼索的狂暴之刃」「納什之牙」「暮夜與黎明（物攻型可改三相之力）」「海克斯科技槍刃」「臨界點」完美同時吃滿 AD 與 AP 雙重成長！" }
       ]
     },
 
@@ -266,7 +266,7 @@ window.HEX_SYNERGY = (function () {
       routes: [
         { name: "法師 DoT 暴擊毀滅流", matchProfiles: ["AP"], items: [6653, 2503, 3031, 4645, 6676, 4646], note: "「黎安卓的折磨 + 黑焰火炬」每一跳灼燒都能暴擊！再補「無盡之刃」大幅提升灼燒暴擊傷害，搭「黯影之炎」秒殺一切！" },
         { name: "AD/暴擊裝備流", matchProfiles: ["AD", "CRIT"], items: [3031, 6676, 3087, 6672], note: "彈簧刀與流血/持續裝備皆可暴擊。" },
-        { name: "坦克獻祭暴擊流", matchProfiles: ["TANK"], items: [3068, 6664, 2502, 3031], note: "日炎聖盾、虛偽光彩、無盡絕望的持續傷害全部都能暴擊！" }
+        { name: "坦克獻祭暴擊流", matchProfiles: ["TANK"], items: [3068, 2502, 3031, 3084], note: "日炎聖盾（或虛偽光彩擇一）、無盡絕望的持續傷害全部都能暴擊！" }
       ]
     },
 
@@ -335,7 +335,7 @@ window.HEX_SYNERGY = (function () {
       headline: "命中效果縮短技能冷卻 1.25 秒 → 高攻速/特效 = 無限技能！",
       mechanic: "每次觸發命中效果就能把技能 CD 砍掉 1.25 秒！搭配能額外觸發命中次數的裝備（鬼索、暮夜與黎明、納什、雙刀流、幻影武器），直接達成無限 QWE！",
       routes: [
-        { name: "AP/刺客無限技能特效流", matchProfiles: ["AP"], items: [3115, 2510, 3124, 3100, 3087], note: "「暮夜與黎明(額外觸發一次命中!) + 納什之牙 + 鬼索的狂暴之刃」讓每一刀或技能直接刷爆基礎技能 CD！" },
+        { name: "AP/刺客無限技能特效流", matchProfiles: ["AP"], items: [3115, 2510, 3124, 3087, 4645], note: "「暮夜與黎明（或改出巫妖之禍）+ 納什之牙 + 鬼索的狂暴之刃」讓每一刀或技能直接刷爆基礎技能 CD！" },
         { name: "物理戰士/射手無限技能流", matchProfiles: ["AD", "CRIT", "ONHIT"], items: [3124, 3153, 3078, 6675, 3091, 3302], note: "「鬼索 + 那歐閃刃 + 殞落 + 三相之力」攻速一拉起來，位移與控場技能完全沒空窗！" }
       ]
     },
@@ -354,8 +354,8 @@ window.HEX_SYNERGY = (function () {
       headline: "施放技能後強化普攻（魔法傷+攻速+跑速）→ 耀光/咒刃系完美同步！",
       mechanic: "完美契合技能穿插普攻的節奏，出任何「閃耀劍」升級裝備都能在同一次強化普攻打出雙重爆發！",
       routes: [
-        { name: "AP 咒刃爆發流", matchProfiles: ["AP"], items: [3100, 2510, 4645, 3089], note: "「巫妖之禍」與「暮夜與黎明」和轟鳴低音節奏完全同步，一發強化 A 直接蒸發脆皮！" },
-        { name: "AD 咒刃戰士/射手流", matchProfiles: ["AD", "CRIT", "ONHIT"], items: [3078, 3508, 3042, 6610], note: "「三相之力 / 奪魄之鐮 / 突破天際」打出一套技能+強化普攻的高額爆發。" },
+        { name: "AP 咒刃爆發流", matchProfiles: ["AP"], items: [3100, 4645, 3089, 3135], note: "「巫妖之禍」（或「暮夜與黎明」擇一）和轟鳴低音節奏完全同步，一發強化 A 直接蒸發脆皮！" },
+        { name: "AD 咒刃戰士/射手流", matchProfiles: ["AD", "CRIT", "ONHIT"], items: [3078, 3042, 6610, 3036], note: "「三相之力」（暴擊射手改「奪魄之鐮」擇一）搭配突破天際打出高額爆發。" },
         { name: "坦克咒刃黏人流", matchProfiles: ["TANK"], items: [6662, 3084, 3748], note: "「寒冰霸拳」同時觸發範圍緩速與額外傷。" }
       ]
     },
@@ -364,17 +364,17 @@ window.HEX_SYNERGY = (function () {
       headline: "施放技能後下一次普攻造成範圍額外物理傷 → 搭配耀光與開戰裝！",
       mechanic: "近戰或技能型英雄施放技能後補一刀普攻即可觸發物理範圍震波。",
       routes: [
-        { name: "物理/坦克咒刃清場流", matchProfiles: ["AD", "TANK"], items: [3078, 6662, 3748, 6610, 3053], note: "「三相之力 / 寒冰霸拳 + 突破天際 + 泰坦九頭蛇」強化普攻範圍傷害極高。" },
-        { name: "AP 混傷咒刃流", matchProfiles: ["AP"], items: [2510, 3100], note: "「暮夜與黎明 / 巫妖之禍」同步強化施放技能後的這關鍵一刀。" }
+        { name: "物理/坦克咒刃清場流", matchProfiles: ["AD", "TANK"], items: [3078, 3748, 6610, 3053], note: "「三相之力（純坦改寒冰霸拳）+ 突破天際 + 泰坦九頭蛇」強化普攻範圍傷害極高。" },
+        { name: "AP 混傷咒刃流", matchProfiles: ["AP"], items: [2510, 3115, 4645], note: "「暮夜與黎明」（或巫妖之禍）同步強化施放技能後的這關鍵一刀。" }
       ]
     },
     1996: {
       cat: "quest",
       headline: "升級「魔法彎刀(閃耀劍)」額外傷害+吸血 → 必出閃耀劍系成裝！",
-      mechanic: "沒有買閃耀劍升級裝的話，這個海克斯幾乎沒效果！一定要出巫妖/三相/冰拳/暮夜與黎明/奪魄之鐮之一。",
+      mechanic: "沒有買閃耀劍升級裝的話，這個海克斯幾乎沒效果！一定要出巫妖/三相/冰拳/暮夜與黎明/奪魄之鐮之一（勿重複出兩件咒刃）。",
       routes: [
-        { name: "AP 升級咒刃吸血流", matchProfiles: ["AP"], items: [3100, 2510, 4645], note: "首選「巫妖之禍」或「暮夜與黎明」（暮夜與黎明還會觸發兩次命中效果，與升級閃耀劍超搭！）。" },
-        { name: "AD 升級咒刃吸血流", matchProfiles: ["AD", "CRIT"], items: [3078, 3508], note: "首選「三相之力」或「奪魄之鐮」。" },
+        { name: "AP 升級咒刃吸血流", matchProfiles: ["AP"], items: [3100, 4645, 3089], note: "首選「巫妖之禍」或改出「暮夜與黎明」（兩者擇一，暮夜與黎明可觸發兩次命中效果）。" },
+        { name: "AD 升級咒刃吸血流", matchProfiles: ["AD", "CRIT"], items: [3078, 6610, 3036], note: "戰士首選「三相之力」、暴擊流可改換「奪魄之鐮」。" },
         { name: "坦克升級咒刃回血流", matchProfiles: ["TANK"], items: [6662, 3065], note: "首選「寒冰霸拳」搭配「振奮盔甲」放大治療量！" }
       ]
     },
@@ -386,7 +386,7 @@ window.HEX_SYNERGY = (function () {
       mechanic: "燃燒與 DOT 的每一跳都在幫你減 QWE 冷卻！只要再出「黎安卓的折磨」和「黑焰火炬」，雙倍灼燒來源讓技能 CD 轉得跟鬼一樣快！",
       routes: [
         { name: "雙面具無限火燒循環流（必出！）", matchProfiles: ["AP", "SUPPORT"], items: [6653, 2503, 3116, 4629, 4633], note: "「黎安卓的折磨 + 黑焰火炬」是絕對必出核心！再補「瑞萊冰杖」拖慢敵人吃滿每一跳灼燒與減 CD！" },
-        { name: "坦克火甲減 CD 流", matchProfiles: ["TANK"], items: [3068, 6664, 2502, 6653], note: "「日炎聖盾 + 虛偽光彩」的範圍持續燃燒一樣可以連動刷基礎技能 CD！" }
+        { name: "坦克火甲減 CD 流", matchProfiles: ["TANK"], items: [3068, 2502, 6653, 3084], note: "「日炎聖盾（對全 AP 可換虛偽光彩）」與無盡絕望的範圍持續燃燒一樣可以連動刷基礎技能 CD！" }
       ]
     },
     1133: {
@@ -403,7 +403,7 @@ window.HEX_SYNERGY = (function () {
       mechanic: "越早出持續灼燒裝備，整場經濟滾雪球越多！",
       routes: [
         { name: "法師印鈔雙面具流", matchProfiles: ["AP"], items: [2503, 6653, 3116], note: "第一件直衝「黑焰火炬」或「黎安卓」，快速刷出經濟差距。" },
-        { name: "坦克日炎印鈔流", matchProfiles: ["TANK"], items: [3068, 6664, 2502], note: "「日炎聖盾 + 虛偽光彩」貼人燒就能一直拿錢！" }
+        { name: "坦克日炎印鈔流", matchProfiles: ["TANK"], items: [3068, 2502, 3084], note: "「日炎聖盾（對 AP 改虛偽光彩）」貼人燒就能一直拿錢！" }
       ]
     },
 
@@ -438,7 +438,7 @@ window.HEX_SYNERGY = (function () {
       headline: "周圍灼燒隨自身最大生命成長 → 堆血 + 冰杖/面具/火甲！",
       mechanic: "靠近敵人自動疊燒傷且隨生命成長，非常適合衝排黏人英雄。",
       routes: [
-        { name: "貼臉生命灼燒流", matchProfiles: ["TANK"], items: [3084, 3083, 3068, 6664, 2502, 2525], note: "「雄心之鋼 + 無盡絕望 + 日炎/虛偽光彩 + 原質馭帶」站著不動就能燒融敵方前排。" }
+        { name: "貼臉生命灼燒流", matchProfiles: ["TANK"], items: [3084, 3083, 3068, 2502, 2525], note: "「雄心之鋼 + 無盡絕望 + 日炎（或虛偽光彩擇一）+ 原質馭帶」站著不動就能燒融敵方前排。" }
       ]
     },
     1324: {
@@ -482,7 +482,7 @@ window.HEX_SYNERGY = (function () {
       mechanic: "如果英雄本身沒盾，只要出帶護盾的裝備（芬布爾之冬、熾天使、星蝕、血手、盾弓、日輪）就能穩定觸發 40~100 適性之力！",
       routes: [
         { name: "法師熾天使觸發流", matchProfiles: ["AP", "SUPPORT"], items: [3040, 3089, 6617], note: "熾天使救命盾一跳出就加高達 100 AP。" },
-        { name: "戰士/坦克星蝕芬布爾流", matchProfiles: ["TANK", "AD"], items: [6692, 3121, 3053, 6673], note: "「星蝕」每 6 秒（頂尖發明家 3 秒）刷一次護盾，等於常駐送海量物攻；坦克出「芬布爾之冬」每次控場刷盾就變戰神！" }
+        { name: "戰士/坦克星蝕芬布爾流", matchProfiles: ["TANK", "AD"], items: [6692, 3121, 3053, 6610], note: "「星蝕」每 6 秒（頂尖發明家 3 秒）刷一次護盾；戰士配「史特拉克手套」（射手可改不朽盾弓），坦克出「芬布爾之冬」每次控場刷盾！" }
       ]
     },
     1076: { cat: "support", headline: "強化/治療/護盾友軍會在周圍引爆傷害與緩速 → 月石/舒瑞亞/歌謠！", mechanic: "需要高頻率施放治療、護盾或增益給隊友。", routes: [{ name: "高頻增益爆發流", matchProfiles: ["SUPPORT", "AP"], items: [6617, 2530, 3504, 6616, 2065], note: "「月石再生器 + 歌謠之冠 + 香爐/流水之杖」每次技能或被動治療都能持續炸傷周圍敵軍。" }] },
@@ -499,8 +499,8 @@ window.HEX_SYNERGY = (function () {
       headline: "獲得等同技能加速 70% 的跑速 → 技能加速裝同時送飆車跑速！",
       mechanic: "100 技能加速 = +70 跑速！堆技能加速同時讓走位跟鬼一樣快（配合別眨眼增傷更是神級聯動）。",
       routes: [
-        { name: "AP 極速飆車流", matchProfiles: ["AP", "SUPPORT"], items: [4629, 2503, 3100, 3158, 3040], note: "「星河馳騁(給技能加速+命中再加速!) + 黑焰火炬 + 巫妖之禍 + CD鞋」，跑速輕鬆破 550+！" },
-        { name: "AD/戰士極速拉扯流", matchProfiles: ["AD", "TANK"], items: [3161, 3071, 3078, 3158, 2517], note: "「精進之矛 + 黑色切割者 + 三相之力 + 無盡飢渴(2517)」滿屏加速同時飆車！" }
+        { name: "AP 極速飆車流", matchProfiles: ["AP", "SUPPORT"], items: [4629, 2503, 3100, 3040, 3089], note: "「星河馳騁(給技能加速+命中再加速!) + 黑焰火炬 + 巫妖之禍 + CD鞋」，跑速輕鬆破 550+！" },
+        { name: "AD/戰士極速拉扯流", matchProfiles: ["AD", "TANK"], items: [3161, 3071, 3078, 2517, 6333], note: "「精進之矛 + 黑色切割者 + 三相之力 + 無盡飢渴(2517)」滿屏加速同時飆車！" }
       ]
     },
     1026: {
@@ -563,7 +563,7 @@ window.HEX_SYNERGY = (function () {
       mechanic: "拿了基本功夫就完全沒有 R 技能！千萬別出惡意、實驗型海克斯板甲、公理弧刃、獵魔弩箭、錫柯等吃大絕的裝備！",
       avoid: [3118, 3073, 6696, 2512, 3050],
       routes: [
-        { name: "純小技能極限循環流", matchProfiles: ["AP", "AD", "CRIT", "TANK", "SUPPORT"], items: [6653, 2503, 3100, 3078, 3161, 6617], note: "法師轉「黑焰 + 黎安卓 + 巫妖/死帽」；戰士轉「精進之矛 + 三相之力」；輔助轉「月石 + 歌謠之冠」，避開一切大絕觸發裝！" }
+        { name: "純小技能極限循環流", matchProfiles: ["AP", "AD", "CRIT", "TANK", "SUPPORT"], items: [6653, 2503, 3100, 3161, 6617], note: "法師轉「黑焰 + 黎安卓 + 巫妖/死帽」；戰士轉「精進之矛 + 三相之力」（與巫妖不共出）；輔助轉「月石 + 歌謠之冠」，避開一切大絕觸發裝！" }
       ]
     },
 
@@ -645,7 +645,7 @@ window.HEX_SYNERGY = (function () {
       headline: "【專屬升級】「日炎/虛偽光彩」燒人就印鈔 → 第一件直衝火甲！",
       mechanic: "每燒到一個英雄給 12 金，團戰貼臉每波多賺幾百塊。",
       routes: [
-        { name: "獻祭印鈔坦流", matchProfiles: ["TANK"], items: [3068, 6664, 3084, 2502], note: "依對面傷型第一件直出「日炎聖盾(3068)」或「虛偽光彩(6664)」。" }
+        { name: "獻祭印鈔坦流", matchProfiles: ["TANK"], items: [3068, 3084, 2502, 3065], note: "依對面傷型第一件直出「日炎聖盾(3068)」或改出「虛偽光彩(6664)」（兩者互斥擇一，除非拿到伊卡西亞殞落任務）。" }
       ]
     },
     2140: {
@@ -692,13 +692,13 @@ window.HEX_SYNERGY = (function () {
     1134: { cat: "tank", headline: "遠程轉近戰並換取巨額物攻、生命、攻速、吸血與跑速 → 必出近戰專屬神裝！", mechanic: "變為近戰後，所有「僅近戰高收益 / 近戰數值翻倍」的裝備（殞落、血手、泰坦、死亡之舞、突破天際、狂怒九頭蛇）全部滿額生效！", routes: [{ name: "射手轉近戰戰神流（極強！）", matchProfiles: ["AD", "CRIT", "ONHIT", "TANK"], items: [3153, 6610, 6333, 3053, 3748, 3078], note: "拿了拔劍吧直接變近戰！「殞落王者之劍(近戰百分比翻倍) + 突破天際 + 死亡之舞 + 史特拉克手套 + 三相之力」近戰數值直接把刺客當菜切！" }] },
     2018: { cat: "ap_scale", headline: "冷卻減免並將所有攻速轉換為技能加速 → 出帶攻速的裝變超強減CD！", mechanic: "包含納什之牙、暮夜與黎明、智慧末刃、狂戰士鞋等攻速屬性全部自動轉為技能加速！", routes: [
       { name: "AP 法師高速連招流", matchProfiles: ["AP"], items: [3115, 2510, 2503, 4629, 3089], note: "「納什之牙(+50%攻速轉大量技能加速) + 暮夜與黎明 + 星河馳騁」讓你技能跟機槍一樣連發！" },
-      { name: "AD 技能型極速流", matchProfiles: ["AD", "CRIT"], items: [3078, 3042, 3161, 3006], note: "連「狂戰士護脛 / 三相之力」給的攻速都能轉成技能加速。" }
+      { name: "AD 技能型極速流", matchProfiles: ["AD", "CRIT"], items: [3078, 3042, 3161, 6333], note: "連「狂戰士護脛 / 三相之力」給的攻速都能轉成技能加速。" }
     ] },
     1028: { cat: "burn", headline: "造成傷害削弱敵方雙防（最多多層）→ 多段/持續裝備快速疊滿破甲！", mechanic: "持續性傷害或高攻速能一秒幫全隊疊滿雙防削弱。", routes: [{ name: "快速疊破防裝", matchProfiles: ["AP", "AD"], items: [6653, 2503, 3085, 3153], note: "法師配「黎安卓/黑焰」、射手配「颶風/殞落」，一瞬間幫隊伍剝光前排雙防。" }] },
     1084: { cat: "hybrid", headline: "+18% 雙穿透 → 可延後法穿/物穿裝，先衝純傷害核心！", mechanic: "免費送雙穿，混傷英雄收益極高，讓你前三件可以先直衝純高傷害裝。", routes: [{ name: "混傷直衝高傷裝", matchProfiles: ["AP", "AD", "ONHIT"], items: [3089, 3124, 3302, 4645, 3031], note: "可延後出虛空之杖/多明尼克，優先直衝「死帽 / 無盡 / 鬼索 / 黯影之炎」最大化爆發。" }] },
     2132: { cat: "tank", headline: "高額全能吸血 → 搭配振奮盔甲與高持續輸出變成打不死！", mechanic: "所有技能和裝備造成的傷害都能吸血。", routes: [{ name: "全能吸血不死流", matchProfiles: ["AP", "AD", "TANK"], items: [3065, 4633, 3146, 2517, 6333], note: "「振奮盔甲」放大 25% 全能吸血；AP 配「峽谷製造者 + 槍刃」、AD 配「無盡飢渴(2517) + 死亡之舞」。" }] },
     1138: { cat: "tank", headline: "+15% 全能吸血 → 搭配振奮盔甲與持續傷害裝站嚕到底！", mechanic: "白銀級神級續戰，配持續 AOEs 傷害吸得超誇張。", routes: [{ name: "全能吸血續戰流", matchProfiles: ["AP", "AD", "TANK"], items: [3065, 4633, 6653, 3146, 2517], note: "「振奮盔甲 + 峽谷製造者 / 無盡飢渴」越打血越多。" }] },
-    1068: { cat: "ap_scale", headline: "+60 技能加速 → 前期不用硬出 CD 鞋，直衝傷害核心！", mechanic: "直接解決冷卻問題，裝備優先度可以往穿透/法強/爆發靠攏。", routes: [{ name: "高爆發傷害流", matchProfiles: ["AP", "AD"], items: [3020, 4645, 3089, 6676, 3031], note: "鞋子可優先選「法師之靴 / 輕靈鞋」搶傷害，裝備直衝最高輸出大件。" }] },
+    1068: { cat: "ap_scale", headline: "+60 技能加速 → 前期不用硬出 CD 鞋，直衝傷害核心！", mechanic: "直接解決冷卻問題，裝備優先度可以往穿透/法強/爆發靠攏。", routes: [{ name: "高爆發傷害流", matchProfiles: ["AP", "AD"], items: [4645, 3089, 6676, 3031, 3135], note: "鞋子可優先選「法師之靴 / 輕靈鞋」搶傷害，裝備直衝最高輸出大件。" }] },
     1388: { cat: "ap_scale", headline: "+60 技能加速且擊殺繼續無限疊 → 搭大魔力裝放招放到魔乾！", mechanic: "冷卻極短後唯一的限制是魔力，一定要確保有回魔/魔力裝。", routes: [{ name: "無限放招續航流", matchProfiles: ["AP", "AD"], items: [2503, 3040, 6655, 3508, 3042], note: "法師補「熾天使 / 黑焰火炬 / 盧登」、AD 補「奪魄之鐮 / 魔劍」防止技能刷太快缺魔。" }] }
   };
 
@@ -832,16 +832,39 @@ window.HEX_SYNERGY = (function () {
     };
   }
 
+  // Item role / unique-passive mutual exclusion groups (Patch 16.23)
+  // Prevents recommending overlapping items (e.g., Trinity Force + Dusk&Dawn, Void Staff + Cryptbloom, etc.)
+  const ITEM_EXCLUSION_GROUPS = [
+    { key: "spellblade", label: "魔法彎刀/耀光系", max: 1, ids: [3078, 2510, 3100, 6662, 3508, 3057] },
+    { key: "pct_arpen", label: "百分比物理穿透", max: 1, ids: [3036, 3033, 6694, 3071, 3302] },
+    { key: "pct_mpen", label: "百分比魔法穿透", max: 1, ids: [3135, 3137, 8010, 3302] },
+    { key: "lifeline", label: "命脈護盾", max: 1, ids: [3053, 3156, 6673, 3040, 2525] },
+    { key: "tear_ap", label: "大天使進化線", max: 1, ids: [3003, 3040] },
+    { key: "tear_ad", label: "魔劍進化線", max: 1, ids: [3004, 3042] },
+    { key: "tear_tank", label: "凜冬進化線", max: 1, ids: [3119, 3121] },
+    { key: "tear_sup", label: "低語進化線", max: 1, ids: [2526, 2530] },
+    { key: "hydra", label: "九頭蛇/劈砍", max: 1, allowMultiWithAug: 2141, ids: [3074, 3748, 6631, 6698, 3077] },
+    { key: "immolate", label: "獻祭灼燒", max: 1, allowMultiWithAug: 1361, ids: [3068, 6664, 6660] },
+    { key: "quicksilver", label: "水銀主動", max: 1, ids: [3139, 3140] },
+    { key: "stasis", label: "凝滯主動", max: 1, ids: [3157, 2420] },
+    { key: "spellshield", label: "法術護盾", max: 1, ids: [3102, 3814] },
+    { key: "grievous", label: "40%重創功能", max: 1, ids: [3033, 6609, 3075, 3165] },
+    { key: "boots", label: "鞋子", max: 0, ids: [1001, 3006, 3008, 3009, 3020, 3047, 3111, 3158] }
+  ];
+
   // Synthesize a complete 6-item build combining champion's OP.GG core + up to 4 pinned augments
   function synthesizeBuild(champ, pinnedAugIds, data) {
     const prof = detectChampProfile(champ, data);
     const champItemMap = getItemStatMap(champ);
+    const pinnedSet = new Set((pinnedAugIds || []).map(Number));
     const avoidSet = new Set();
     const itemScores = {};
     const itemReasons = {};
 
     function addScore(iid, pts, reason) {
       if (!iid || avoidSet.has(iid)) return;
+      const meta = data.items[String(iid)];
+      if (meta && meta.tags && meta.tags.includes("Boots")) return;
       itemScores[iid] = (itemScores[iid] || 0) + pts;
       if (reason) {
         if (!itemReasons[iid]) itemReasons[iid] = [];
@@ -878,7 +901,7 @@ window.HEX_SYNERGY = (function () {
         addScore(iid, 55 - idx * 6, "OP.GG 常規核心");
       });
     }
-    for (const it of (champ.items || []).slice(0, 15)) {
+    for (const it of (champ.items || []).slice(0, 18)) {
       const meta = data.items[String(it.id)];
       if (!meta) continue;
       if (meta.tags && meta.tags.includes("Boots")) continue;
@@ -891,10 +914,8 @@ window.HEX_SYNERGY = (function () {
     // Pick best boots (respecting avoidSet and speed/AP/AS synergies)
     let bestBoot = null;
     if (champ.boots && champ.boots.length > 0) {
-      let bChoice = champ.boots[0];
-      // If Basic Mastery / Recursion / Eureka / Apex, swifties or sorcs often shine; keep highest WR valid boot or #1 pick
-      const highPrBoots = champ.boots.filter(b => b.pr >= 10).sort((a, b) => b.wr - a.wr);
-      bChoice = highPrBoots[0] || champ.boots[0];
+      const highPrBoots = champ.boots.filter(b => b.pr >= 10 && !avoidSet.has(b.id)).sort((a, b) => b.wr - a.wr);
+      const bChoice = highPrBoots[0] || champ.boots[0];
       const bMeta = data.items[String(bChoice.id)];
       bestBoot = {
         id: bChoice.id,
@@ -906,25 +927,45 @@ window.HEX_SYNERGY = (function () {
       };
     }
 
-    // Rank top 5 non-boot legendary items
-    const ranked = Object.keys(itemScores)
+    // Rank top 5 non-boot legendary items while strictly enforcing exclusion groups
+    const candidates = Object.keys(itemScores)
       .map(Number)
       .filter(iid => !avoidSet.has(iid))
-      .sort((a, b) => itemScores[b] - itemScores[a])
-      .slice(0, 5)
-      .map(iid => {
-        const meta = data.items[String(iid)];
-        const stat = champItemMap[iid];
-        return {
-          id: iid,
-          name: meta ? meta.name : ("Item " + iid),
-          img: meta ? meta.img : "",
-          gold: meta ? meta.gold : 0,
-          wr: stat ? stat.wr : null,
-          pr: stat ? stat.pr : null,
-          reasons: itemReasons[iid] || ["高勝率常規配裝"]
-        };
-      });
+      .sort((a, b) => itemScores[b] - itemScores[a]);
+
+    const groupCounts = {};
+    const pickedIds = [];
+    for (const iid of candidates) {
+      if (pickedIds.length >= 5) break;
+      let blocked = false;
+      for (const grp of ITEM_EXCLUSION_GROUPS) {
+        if (!grp.ids.includes(iid)) continue;
+        const maxAllowed = (grp.allowMultiWithAug && pinnedSet.has(grp.allowMultiWithAug)) ? 9 : grp.max;
+        if ((groupCounts[grp.key] || 0) >= maxAllowed) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+      pickedIds.push(iid);
+      for (const grp of ITEM_EXCLUSION_GROUPS) {
+        if (grp.ids.includes(iid)) groupCounts[grp.key] = (groupCounts[grp.key] || 0) + 1;
+      }
+    }
+
+    const ranked = pickedIds.map(iid => {
+      const meta = data.items[String(iid)];
+      const stat = champItemMap[iid];
+      return {
+        id: iid,
+        name: meta ? meta.name : ("Item " + iid),
+        img: meta ? meta.img : "",
+        gold: meta ? meta.gold : 0,
+        wr: stat ? stat.wr : null,
+        pr: stat ? stat.pr : null,
+        reasons: itemReasons[iid] || ["高勝率常規配裝"]
+      };
+    });
 
     return {
       boots: bestBoot,
@@ -940,6 +981,7 @@ window.HEX_SYNERGY = (function () {
   return {
     CAT_META,
     RULES,
+    ITEM_EXCLUSION_GROUPS,
     detectChampProfile,
     getAugmentGuide,
     synthesizeBuild
