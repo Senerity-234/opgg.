@@ -4,6 +4,19 @@
 
 ---
 
+## 版本 1.3（2026-11-18）· 標籤 `v1.3`
+**主題：修復單一定位英雄點擊異常 × 跨版本 SafeJson 序列化 × 歷史冗餘樣式精簡**
+
+* **修復部分英雄點擊無反應問題**
+  * 修正 Windows PowerShell 5.1 管線回傳與 `ConvertTo-Json` 拆解單元素陣列的缺陷：在 `sync_data.ps1` 實作無外部相依（同時相容 Windows PowerShell 5.1 與 GitHub Actions `pwsh` 7+）的 `SafeJson` 序列化器，並於 `To-JsonList` 保留單元素集合，確保全部 **43 位單一定位英雄 `roles`** 與 **21 件單一標籤裝備 `tags`** 嚴格輸出為 JSON 陣列。
+  * 於 `app.js` 新增 `toArr()` 與 `rebuildDataIndexes()` 載入／熱更新防呆正規化，徹底消除 `c.roles.map is not a function` 例外，173 位英雄皆可正常切換檢視。
+* **上傳前自我檢查與歷史冗餘精簡**
+  * 清理 [styles.css](styles.css) 中由 v1.0/v1.1 整併遺留的無效舊選擇器（`.sim-slots`、`.sim-slot`、`.sim-slot-remove`、`.enc-grid`、`.quick-top-grid`、`.stage-btn*`、`.slot-picker-grid`、`.sim-aug-chip`，共減少約 50 行冗餘 CSS）。
+  * 同步 [index.html](index.html) 預設顯示版本至 Patch `16.23`、整理視圖註解編號，並讓 `app.js` 在載入或熱更新時同步更新網頁標題 `document.title`。
+  * 為 [sync_data.ps1](sync_data.ps1) 加入 `-RebuildOnly` 參數支援本機快取快速重建與無 `System.Web.Extensions` 相依的跨環境 CI 相容性。
+
+---
+
 ## 版本 1.2（2026-11-18）· 提交 `94510c7`
 **主題：啟動自動同步機制 × Patch 16.23 資料升級 × 裝備定位去重 × 已選海克斯清單清理**
 

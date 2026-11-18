@@ -1,6 +1,7 @@
 ﻿param(
   [int]$BatchSize = 10,
-  [switch]$Quiet
+  [switch]$Quiet,
+  [switch]$RebuildOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,6 +10,14 @@ $cacheDir = Join-Path $appDir ".cache"
 $opggDir = Join-Path $cacheDir "opgg_cache"
 $aramggDir = Join-Path $cacheDir "aramgg_cache"
 $statusPath = Join-Path $cacheDir "sync_status.json"
+
+function To-JsonList($seq) {
+  $list = New-Object "System.Collections.Generic.List[object]"
+  if ($null -ne $seq) {
+    foreach ($x in @($seq)) { $list.Add($x) }
+  }
+  return ,$list
+}
 
 New-Item -ItemType Directory -Force -Path $cacheDir, $opggDir, $aramggDir | Out-Null
 
@@ -125,136 +134,146 @@ public static class FastJsonExtract {
     return (Test-Path $destPath)
   }
 
-  # 1. Riot DataDragon
   $ddVerPath = Join-Path $cacheDir "dd_versions.json"
-  if (-not (Download-WithFallback $client "https://ddragon.leagueoflegends.com/api/versions.json" $ddVerPath)) {
-    throw "無法取得 Riot DataDragon 版本清單，且無本機快取。"
-  }
-  $versions = Get-Content $ddVerPath -Raw -Encoding UTF8 | ConvertFrom-Json
-  $ddVer = [string]$versions[0]
-  $patchParts = $ddVer.Split('.')
-  $patch = if ($patchParts.Count -ge 2) { "$($patchParts[0]).$($patchParts[1])" } else { $ddVer }
-
   $ddItemsPath = Join-Path $cacheDir "dd_items_tw.json"
   $ddChampsPath = Join-Path $cacheDir "dd_champs_tw.json"
-  $null = Download-WithFallback $client "https://ddragon.leagueoflegends.com/cdn/$ddVer/data/zh_TW/item.json" $ddItemsPath
-  $null = Download-WithFallback $client "https://ddragon.leagueoflegends.com/cdn/$ddVer/data/zh_TW/championFull.json" $ddChampsPath
-
-  # 2. Meraki Analytics
-  Write-SyncStatus "running" "2/5" "正在同步 Meraki 全英雄基礎屬性與技能公式..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
   $mkPath = Join-Path $cacheDir "meraki_all_champs.json"
-  $null = Download-WithFallback $client "https://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json" $mkPath
-
-  # 3. OP.GG Main ARAM: Mayhem HTML (extracts latest 173+ champion list + global 311+ augments)
-  Write-SyncStatus "running" "3/5" "正在抓取 OP.GG ARAM: Mayhem 最新梯隊與全海克斯..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
   $opMainPath = Join-Path $cacheDir "opgg_main.html"
-  $null = Download-WithFallback $client "https://op.gg/zh-tw/lol/modes/aram-mayhem" $opMainPath
-  $amHtml = [System.IO.File]::ReadAllText($opMainPath, [System.Text.Encoding]::UTF8)
-
-  $champsList = $null
-  $globalAugsRaw = $null
-  $scripts = [regex]::Matches($amHtml, 'self\.__next_f\.push\(\[1,"(.*?)"\]\)')
-  foreach ($m in $scripts) {
-    $raw = $m.Groups[1].Value
-    if ($raw.Length -lt 5000) { continue }
-    $u = [System.Text.RegularExpressions.Regex]::Unescape($raw)
-    if (-not $champsList -and $u.Contains('"champions":[{')) {
-      $cIdx = $u.IndexOf('"champions":[{')
-      $arrIdx = $u.IndexOf('[', $cIdx)
-      $cArrStr = [FastJsonExtract]::ExtractBalancedArray($u, $arrIdx)
-      if ($cArrStr) { $champsList = $cArrStr | ConvertFrom-Json }
-    }
-    if (-not $globalAugsRaw -and $raw.Length -gt 150000 -and $u.Contains('{"data":[{')) {
-      $gIdx = $u.IndexOf('{"data":[{')
-      $gStr = [FastJsonExtract]::ExtractBalancedObject($u, $gIdx)
-      if ($gStr) {
-        $gObj = $gStr | ConvertFrom-Json
-        if ($gObj.data -and $gObj.data.Count -gt 50) { $globalAugsRaw = $gObj.data }
-      }
-    }
-  }
-
   $champsListPath = Join-Path $cacheDir "champions_list.json"
   $globalAugsPath = Join-Path $cacheDir "global_augments.json"
-  if ($champsList) {
-    $champsList | ConvertTo-Json -Depth 4 -Compress | Out-File $champsListPath -Encoding UTF8
-  } elseif (Test-Path $champsListPath) {
-    $champsList = Get-Content $champsListPath -Raw -Encoding UTF8 | ConvertFrom-Json
-  } else {
-    throw "無法從 OP.GG 取得英雄清單。"
-  }
-
-  if ($globalAugsRaw) {
-    $globalAugsRaw | Select-Object id, name, key, rarity, tier, performance, popular, desc, largeIcon, champions |
-      ConvertTo-Json -Depth 4 -Compress | Out-File $globalAugsPath -Encoding UTF8
-  } elseif (Test-Path $globalAugsPath) {
-    $globalAugsRaw = Get-Content $globalAugsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-  } else {
-    throw "無法從 OP.GG 取得海克斯清單。"
-  }
-
-  # 4. Fetch latest per-champion OP.GG & ARAMGG data in parallel batches
-  $jobs = @()
-  foreach ($c in $champsList) {
-    $k = $c.key
-    $cid = $c.id
-    $jobs += @{ kind = "opgg"; url = "https://op.gg/zh-tw/lol/modes/aram-mayhem/$k/augments"; path = "$opggDir\${k}_aug.rsc" }
-    $jobs += @{ kind = "opgg"; url = "https://op.gg/zh-tw/lol/modes/aram-mayhem/$k/items"; path = "$opggDir\${k}_items.rsc" }
-    $jobs += @{ kind = "opgg"; url = "https://op.gg/zh-tw/lol/modes/aram-mayhem/$k/build"; path = "$opggDir\${k}_build.rsc" }
-    $jobs += @{ kind = "aramgg"; url = "https://aramgg.com/zh-TW/champion-stats/$cid"; path = "$aramggDir\${cid}.html" }
-  }
-
-  $totalJobs = $jobs.Count
-  $done = 0
   $updated = 0
-  $retryList = @()
-  for ($i = 0; $i -lt $totalJobs; $i += $BatchSize) {
-    $end = [Math]::Min($i + $BatchSize - 1, $totalJobs - 1)
-    $batch = $jobs[$i..$end]
-    $tasks = @()
-    foreach ($item in $batch) {
-      $http = if ($item.kind -eq "opgg") { $rscClient } else { $client }
-      $tasks += @{ item = $item; task = $http.GetByteArrayAsync($item.url) }
+
+  if (-not $RebuildOnly) {
+    # 1. Riot DataDragon
+    if (-not (Download-WithFallback $client "https://ddragon.leagueoflegends.com/api/versions.json" $ddVerPath)) {
+      throw "無法取得 Riot DataDragon 版本清單，且無本機快取。"
     }
-    try {
-      [System.Threading.Tasks.Task]::WaitAll([System.Threading.Tasks.Task[]]@($tasks | ForEach-Object { $_.task }))
-    } catch {}
-    foreach ($t in $tasks) {
-      $done++
-      $saved = $false
-      if ($t.task.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) {
-        $bytes = $t.task.Result
-        $minLen = if ($t.item.kind -eq "aramgg") { 8000 } else { 4000 }
-        if ($bytes -and $bytes.Length -gt $minLen) {
-          [System.IO.File]::WriteAllBytes($t.item.path, $bytes)
-          $updated++
-          $saved = $true
+    $versions = Get-Content $ddVerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $ddVer = [string]$versions[0]
+    $patchParts = $ddVer.Split('.')
+    $patch = if ($patchParts.Count -ge 2) { "$($patchParts[0]).$($patchParts[1])" } else { $ddVer }
+
+    $null = Download-WithFallback $client "https://ddragon.leagueoflegends.com/cdn/$ddVer/data/zh_TW/item.json" $ddItemsPath
+    $null = Download-WithFallback $client "https://ddragon.leagueoflegends.com/cdn/$ddVer/data/zh_TW/championFull.json" $ddChampsPath
+
+    # 2. Meraki Analytics
+    Write-SyncStatus "running" "2/5" "正在同步 Meraki 全英雄基礎屬性與技能公式..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
+    $null = Download-WithFallback $client "https://cdn.merakianalytics.com/riot/lol/resources/latest/en-US/champions.json" $mkPath
+
+    # 3. OP.GG Main ARAM: Mayhem HTML (extracts latest 173+ champion list + global 311+ augments)
+    Write-SyncStatus "running" "3/5" "正在抓取 OP.GG ARAM: Mayhem 最新梯隊與全海克斯..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
+    $null = Download-WithFallback $client "https://op.gg/zh-tw/lol/modes/aram-mayhem" $opMainPath
+    $amHtml = [System.IO.File]::ReadAllText($opMainPath, [System.Text.Encoding]::UTF8)
+
+    $champsList = $null
+    $globalAugsRaw = $null
+    $scripts = [regex]::Matches($amHtml, 'self\.__next_f\.push\(\[1,"(.*?)"\]\)')
+    foreach ($m in $scripts) {
+      $raw = $m.Groups[1].Value
+      if ($raw.Length -lt 5000) { continue }
+      $u = [System.Text.RegularExpressions.Regex]::Unescape($raw)
+      if (-not $champsList -and $u.Contains('"champions":[{')) {
+        $cIdx = $u.IndexOf('"champions":[{')
+        $arrIdx = $u.IndexOf('[', $cIdx)
+        $cArrStr = [FastJsonExtract]::ExtractBalancedArray($u, $arrIdx)
+        if ($cArrStr) { $champsList = $cArrStr | ConvertFrom-Json }
+      }
+      if (-not $globalAugsRaw -and $raw.Length -gt 150000 -and $u.Contains('{"data":[{')) {
+        $gIdx = $u.IndexOf('{"data":[{')
+        $gStr = [FastJsonExtract]::ExtractBalancedObject($u, $gIdx)
+        if ($gStr) {
+          $gObj = $gStr | ConvertFrom-Json
+          if ($gObj.data -and $gObj.data.Count -gt 50) { $globalAugsRaw = $gObj.data }
         }
       }
-      if (-not $saved) { $retryList += $t.item }
     }
-    if ((($i / $BatchSize) % 6) -eq 0 -or $done -eq $totalJobs) {
-      $pct = [Math]::Round(($done / $totalJobs) * 100)
-      Write-SyncStatus "running" "4/5 ($pct%)" "正在同步各英雄最新 OP.GG / ARAMGG 數據 ($done / $totalJobs)..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
-    }
-    Start-Sleep -Milliseconds 100
-  }
 
-  # Retry any transiently failed or rate-limited requests sequentially
-  if ($retryList.Count -gt 0) {
-    Write-SyncStatus "running" "4/5 (重試)" "正在重試 $($retryList.Count) 筆暫時失敗請求..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
-    foreach ($item in $retryList) {
-      try {
-        Start-Sleep -Milliseconds 250
-        $http = if ($item.kind -eq "opgg") { $rscClient } else { $client }
-        $bytes = $http.GetByteArrayAsync($item.url).GetAwaiter().GetResult()
-        $minLen = if ($item.kind -eq "aramgg") { 8000 } else { 4000 }
-        if ($bytes -and $bytes.Length -gt $minLen) {
-          [System.IO.File]::WriteAllBytes($item.path, $bytes)
-          $updated++
-        }
-      } catch {}
+    if ($champsList) {
+      $champsList | ConvertTo-Json -Depth 4 -Compress | Out-File $champsListPath -Encoding UTF8
+    } elseif (Test-Path $champsListPath) {
+      $champsList = Get-Content $champsListPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } else {
+      throw "無法從 OP.GG 取得英雄清單。"
     }
+
+    if ($globalAugsRaw) {
+      $globalAugsRaw | Select-Object id, name, key, rarity, tier, performance, popular, desc, largeIcon, champions |
+        ConvertTo-Json -Depth 4 -Compress | Out-File $globalAugsPath -Encoding UTF8
+    } elseif (Test-Path $globalAugsPath) {
+      $globalAugsRaw = Get-Content $globalAugsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } else {
+      throw "無法從 OP.GG 取得海克斯清單。"
+    }
+
+    # 4. Fetch latest per-champion OP.GG & ARAMGG data in parallel batches
+    $jobs = @()
+    foreach ($c in $champsList) {
+      $k = $c.key
+      $cid = $c.id
+      $jobs += @{ kind = "opgg"; url = "https://op.gg/zh-tw/lol/modes/aram-mayhem/$k/augments"; path = "$opggDir\${k}_aug.rsc" }
+      $jobs += @{ kind = "opgg"; url = "https://op.gg/zh-tw/lol/modes/aram-mayhem/$k/items"; path = "$opggDir\${k}_items.rsc" }
+      $jobs += @{ kind = "opgg"; url = "https://op.gg/zh-tw/lol/modes/aram-mayhem/$k/build"; path = "$opggDir\${k}_build.rsc" }
+      $jobs += @{ kind = "aramgg"; url = "https://aramgg.com/zh-TW/champion-stats/$cid"; path = "$aramggDir\${cid}.html" }
+    }
+
+    $totalJobs = $jobs.Count
+    $done = 0
+    $retryList = @()
+    for ($i = 0; $i -lt $totalJobs; $i += $BatchSize) {
+      $end = [Math]::Min($i + $BatchSize - 1, $totalJobs - 1)
+      $batch = $jobs[$i..$end]
+      $tasks = @()
+      foreach ($item in $batch) {
+        $http = if ($item.kind -eq "opgg") { $rscClient } else { $client }
+        $tasks += @{ item = $item; task = $http.GetByteArrayAsync($item.url) }
+      }
+      try {
+        [System.Threading.Tasks.Task]::WaitAll([System.Threading.Tasks.Task[]]@($tasks | ForEach-Object { $_.task }))
+      } catch {}
+      foreach ($t in $tasks) {
+        $done++
+        $saved = $false
+        if ($t.task.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) {
+          $bytes = $t.task.Result
+          $minLen = if ($t.item.kind -eq "aramgg") { 8000 } else { 4000 }
+          if ($bytes -and $bytes.Length -gt $minLen) {
+            [System.IO.File]::WriteAllBytes($t.item.path, $bytes)
+            $updated++
+            $saved = $true
+          }
+        }
+        if (-not $saved) { $retryList += $t.item }
+      }
+      if ((($i / $BatchSize) % 6) -eq 0 -or $done -eq $totalJobs) {
+        $pct = [Math]::Round(($done / $totalJobs) * 100)
+        Write-SyncStatus "running" "4/5 ($pct%)" "正在同步各英雄最新 OP.GG / ARAMGG 數據 ($done / $totalJobs)..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
+      }
+      Start-Sleep -Milliseconds 100
+    }
+
+    # Retry any transiently failed or rate-limited requests sequentially
+    if ($retryList.Count -gt 0) {
+      Write-SyncStatus "running" "4/5 (重試)" "正在重試 $($retryList.Count) 筆暫時失敗請求..." @{ startedAt = $startedAt; patch = $patch; ddVer = $ddVer }
+      foreach ($item in $retryList) {
+        try {
+          Start-Sleep -Milliseconds 250
+          $http = if ($item.kind -eq "opgg") { $rscClient } else { $client }
+          $bytes = $http.GetByteArrayAsync($item.url).GetAwaiter().GetResult()
+          $minLen = if ($item.kind -eq "aramgg") { 8000 } else { 4000 }
+          if ($bytes -and $bytes.Length -gt $minLen) {
+            [System.IO.File]::WriteAllBytes($item.path, $bytes)
+            $updated++
+          }
+        } catch {}
+      }
+    }
+  } else {
+    $versions = Get-Content $ddVerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $ddVer = [string]$versions[0]
+    $patchParts = $ddVer.Split('.')
+    $patch = if ($patchParts.Count -ge 2) { "$($patchParts[0]).$($patchParts[1])" } else { $ddVer }
+    $champsList = Get-Content $champsListPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $globalAugsRaw = Get-Content $globalAugsPath -Raw -Encoding UTF8 | ConvertFrom-Json
   }
 
   $client.Dispose()
@@ -337,7 +356,7 @@ public static class FastJsonExtract {
       if (-not $dd -and $id -eq 4011) { $dd = $ddItems."124011" }
       $name = if ($metaObj -and $metaObj.name) { $metaObj.name } elseif ($dd) { $dd.name } else { "Item $id" }
       $img = if ($metaObj -and $metaObj.image_url) { $metaObj.image_url } else { "https://opgg-static.akamaized.net/meta/images/lol/$ddVer/item/$id.png" }
-      $tags = if ($dd -and $dd.tags) { @($dd.tags) } else { @() }
+      $tags = To-JsonList $(if ($dd -and $dd.tags) { $dd.tags })
       $gold = if ($dd -and $dd.gold) { [int]$dd.gold.total } else { 0 }
       $plain = if ($dd -and $dd.plaintext) { $dd.plaintext } else { "" }
       $desc = if ($dd -and $dd.description) { Clean-Desc $dd.description } else { "" }
@@ -633,7 +652,7 @@ public static class FastJsonExtract {
     $championsOut += @{
       id = $cid; key = $k; name = $c.name
       title = if ($ddC) { $ddC.title } else { "" }
-      roles = if ($ddC -and $ddC.tags) { @($ddC.tags) } else { @() }
+      roles = To-JsonList $(if ($ddC -and $ddC.tags) { $ddC.tags })
       partype = if ($ddC) { $ddC.partype } else { "" }
       img = $c.image_url; tier = [int]$c.tier; rank = [int]$c.rank
       wr = $overallWR; pr = $overallPR
@@ -656,7 +675,120 @@ public static class FastJsonExtract {
     champions = $championsOut
   }
 
-  $json = $bundle | ConvertTo-Json -Depth 12 -Compress
+  if (-not ("SafeJson" -as [type])) {
+    Add-Type -TypeDefinition @"
+using System;
+using System.Collections;
+using System.Globalization;
+using System.Management.Automation;
+using System.Text;
+
+public static class SafeJson {
+  private static void AppendString(StringBuilder sb, string s) {
+    sb.Append('"');
+    if (s != null) {
+      for (int i = 0; i < s.Length; i++) {
+        char c = s[i];
+        switch (c) {
+          case '"':  sb.Append("\\\""); break;
+          case '\\': sb.Append("\\\\"); break;
+          case '\b': sb.Append("\\b"); break;
+          case '\f': sb.Append("\\f"); break;
+          case '\n': sb.Append("\\n"); break;
+          case '\r': sb.Append("\\r"); break;
+          case '\t': sb.Append("\\t"); break;
+          default:
+            if (c < ' ') {
+              sb.AppendFormat(CultureInfo.InvariantCulture, "\\u{0:x4}", (int)c);
+            } else {
+              sb.Append(c);
+            }
+            break;
+        }
+      }
+    }
+    sb.Append('"');
+  }
+
+  private static void AppendValue(StringBuilder sb, object obj) {
+    if (obj == null) { sb.Append("null"); return; }
+    PSObject pso = obj as PSObject;
+    if (pso != null) {
+      if (pso.BaseObject != null && !(pso.BaseObject is PSCustomObject)) {
+        obj = pso.BaseObject;
+      } else {
+        sb.Append('{');
+        bool first = true;
+        foreach (PSPropertyInfo prop in pso.Properties) {
+          if (!prop.IsGettable) continue;
+          if (!first) sb.Append(',');
+          first = false;
+          AppendString(sb, prop.Name);
+          sb.Append(':');
+          AppendValue(sb, prop.Value);
+        }
+        sb.Append('}');
+        return;
+      }
+    }
+    if (obj is bool) { sb.Append(((bool)obj) ? "true" : "false"); return; }
+    if (obj is string) { AppendString(sb, (string)obj); return; }
+    if (obj is char) { AppendString(sb, obj.ToString()); return; }
+    if (obj is double) {
+      double d = (double)obj;
+      if (double.IsNaN(d) || double.IsInfinity(d)) { sb.Append("null"); }
+      else { sb.Append(d.ToString("R", CultureInfo.InvariantCulture)); }
+      return;
+    }
+    if (obj is float) {
+      float f = (float)obj;
+      if (float.IsNaN(f) || float.IsInfinity(f)) { sb.Append("null"); }
+      else { sb.Append(f.ToString("R", CultureInfo.InvariantCulture)); }
+      return;
+    }
+    if (obj is decimal) { sb.Append(((decimal)obj).ToString(CultureInfo.InvariantCulture)); return; }
+    if (obj is int || obj is long || obj is short || obj is byte || obj is sbyte || obj is uint || obj is ulong || obj is ushort) {
+      sb.Append(Convert.ToString(obj, CultureInfo.InvariantCulture));
+      return;
+    }
+    IDictionary idict = obj as IDictionary;
+    if (idict != null) {
+      sb.Append('{');
+      bool first = true;
+      foreach (DictionaryEntry de in idict) {
+        if (!first) sb.Append(',');
+        first = false;
+        AppendString(sb, Convert.ToString(de.Key, CultureInfo.InvariantCulture));
+        sb.Append(':');
+        AppendValue(sb, de.Value);
+      }
+      sb.Append('}');
+      return;
+    }
+    IEnumerable ienum = obj as IEnumerable;
+    if (ienum != null) {
+      sb.Append('[');
+      bool first = true;
+      foreach (object item in ienum) {
+        if (!first) sb.Append(',');
+        first = false;
+        AppendValue(sb, item);
+      }
+      sb.Append(']');
+      return;
+    }
+    AppendString(sb, Convert.ToString(obj, CultureInfo.InvariantCulture));
+  }
+
+  public static string Serialize(object obj) {
+    var sb = new StringBuilder(1024 * 1024);
+    AppendValue(sb, obj);
+    return sb.ToString();
+  }
+}
+"@
+  }
+  $json = [SafeJson]::Serialize($bundle)
   $jsContent = "window.HEX_DATA = $json;"
   $tmpDataPath = Join-Path $appDir "data.js.tmp"
   $finalDataPath = Join-Path $appDir "data.js"

@@ -17,13 +17,31 @@
   let champByKey = {};
   let augToChamps = {};
 
+  function toArr(v) {
+    return Array.isArray(v) ? v : (v !== null && v !== undefined && v !== "" ? [v] : []);
+  }
+
   function rebuildDataIndexes(newData) {
     DATA = newData;
     champById = {};
     champByKey = {};
+    DATA.champions = toArr(DATA.champions);
     DATA.champions.forEach(c => {
+      c.roles = toArr(c.roles);
+      c.augs = toArr(c.augs);
+      c.core = toArr(c.core).map(cr => ({ ...cr, ids: toArr(cr.ids) }));
+      c.boots = toArr(c.boots);
+      c.starter = toArr(c.starter).map(st => ({ ...st, ids: toArr(st.ids) }));
+      c.items = toArr(c.items);
+      c.combos = toArr(c.combos).map(cb => ({ ...cb, augs: toArr(cb.augs) }));
+      c.arch = toArr(c.arch).map(ar => ({ ...ar, tags: toArr(ar.tags), sit: toArr(ar.sit), cores: toArr(ar.cores).map(cr => ({ ...cr, ids: toArr(cr.ids) })) }));
+      c.spells = toArr(c.spells);
+      if (c.skills) c.skills.q = toArr(c.skills.q);
       champById[c.id] = c;
       champByKey[c.key] = c;
+    });
+    Object.values(DATA.items || {}).forEach(it => {
+      it.tags = toArr(it.tags);
     });
     augToChamps = {};
     DATA.champions.forEach(c => {
@@ -42,6 +60,7 @@
     if (fp && DATA.patch) fp.textContent = DATA.patch;
     const fm = document.getElementById("footerSyncMeta");
     if (fm && DATA.generatedAt) fm.textContent = `· 最近同步：${DATA.generatedAt}`;
+    if (DATA.patch) document.title = `LoL 海克斯大亂鬥全書 · Patch ${DATA.patch} | 局內選牌決策 × 傷害成長模擬 × 特化裝備攻略`;
   }
 
   rebuildDataIndexes(DATA);
@@ -1250,7 +1269,11 @@
 
   document.getElementById("champGrid").addEventListener("click", (e) => {
     const tile = e.target.closest("[data-champ-key]");
-    if (tile) { selectChampion(tile.dataset.champKey, null); renderChampionGrid(); renderChampionDetail(); }
+    if (tile) {
+      selectChampion(tile.dataset.champKey, null);
+      renderChampionGrid();
+      renderChampionDetail();
+    }
   });
   document.getElementById("togglePickerBtn").addEventListener("click", () => {
     state.pickerCollapsed = !state.pickerCollapsed;
